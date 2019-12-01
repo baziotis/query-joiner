@@ -2,6 +2,7 @@
 #define SORT_MERGE_JOIN__ARRAY_H_
 
 #include "common.h"
+#include "data_structures.h"
 #include <limits>
 
 #include <cstdio>
@@ -11,7 +12,7 @@
 // A simple lightweight array type
 // It has constant size with which it is initialized.
 
-template <typename T> struct Array {
+template <typename T> struct  Array {
   Array() : data{nullptr}, capacity{0}, size{0} {}
 
   explicit Array(size_t n) : Array() { reserve(n); }
@@ -44,7 +45,7 @@ template <typename T> struct Array {
     size = 0U;
   }
 
-  inline Array subarray(size_t start_index, size_t end_index) {
+  inline Array<T> subarray(size_t start_index, size_t end_index) {
     assert(start_index >= 0 && start_index <= end_index &&
            end_index <= capacity);
     Array<T> subarr{};

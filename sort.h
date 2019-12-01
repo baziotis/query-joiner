@@ -1,0 +1,6 @@
+#ifndef QUERY_JOINER__SORT_H_
+#define QUERY_JOINER__SORT_H_
+
+
+
+#endif //QUERY_JOINER__SORT_H_
