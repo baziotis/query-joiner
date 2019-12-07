@@ -2,7 +2,6 @@
 #define SORT_MERGE_JOIN__ARRAY_H_
 
 #include "common.h"
-#include "data_structures.h"
 #include <limits>
 
 #include <cstdio>

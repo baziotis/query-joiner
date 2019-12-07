@@ -415,25 +415,6 @@
 //    return 1;
 //}
 
-
-#include <cstddef>
-#include <zconf.h>
-#include "data_structures.h"
-#include "report_utils.h"
 int main() {
-  size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
-  constexpr size_t coln = 10;
-  ColumnCollection collection(coln);
-  for (size_t i = 0U; i != coln; ++i) {
-    collection.push(make_pair(u64(coln - i), u64(i)));
-  }
-
-  ColumnCollection aux(coln);
-  MemoryContext context{aux, {}};
-  report("================ BEFORE SORTING ================");
-  collection.print();
-  collection.sort(context, sort_threshold);
-  report("================ AFTER SORTING ================");
-  collection.print();
   return 0;
 }

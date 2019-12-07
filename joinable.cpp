@@ -76,16 +76,16 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
     }
 
     curr.copy_data(curr_aux, prefix_sum, byte_pos);
-    ColumnEntry *curr_aux_base = curr_aux.data;
+    JoinableEntry *curr_aux_base = curr_aux.data;
     for (size_t i = min_max.first; i <= min_max.second; ++i) {
       size_t nr_elements = hist[i];
-      ColumnEntry *psum_base = prefix_sum_copy[i];
+      JoinableEntry *psum_base = prefix_sum_copy[i];
       ptrdiff_t from_index = context.from + (psum_base - curr_aux_base);
       if (nr_elements > 1) {
-        if ((nr_elements * sizeof(ColumnEntry)) <= sort_threshold) {
+        if ((nr_elements * sizeof(JoinableEntry)) <= sort_threshold) {
 //          quick_sort(psum_base, 0, nelements - 1);
           if ((byte_pos & 1) == 0) {
-            memcpy(this->data + from_index, psum_base, nr_elements * sizeof(ColumnEntry));
+            memcpy(this->data + from_index, psum_base, nr_elements * sizeof(JoinableEntry));
           }
         } else {
           ptrdiff_t to_index = from_index + nr_elements;

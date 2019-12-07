@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include "array.h"
+#include "pair.h"
+#include "stretchy_buf.h"
 
 /**
  * It represents an entry in a joinable object
