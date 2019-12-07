@@ -5,9 +5,19 @@
 #include <cstdio>
 #include "array.h"
 #include "common.h"
+#include "joinable.h"
 
 struct RelationData : public Array<Array<u64>> {
   RelationData(uint64_t row_n, uint64_t col_n);
+  /**
+   * Creates a joinable object from relation data.
+   * The "key_index" specifies which column will be used as a join column.
+   * The row_ids of the joinable are the index of each relation data tuple.
+   *
+   * @param key_index The index of the join column.
+   * @return A Joinable object.
+   */
+  Joinable to_joinable(size_t key_index);
   void print(FILE *fp = stdout, char delimiter = ' ');
 };
 

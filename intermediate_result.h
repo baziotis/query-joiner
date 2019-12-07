@@ -7,6 +7,8 @@
 
 #include <zconf.h>
 #include <cstdint>
+#include "joinable.h"
+#include "relation_storage.h"
 
 /**
  * Represents the intermediate result of a query predicate execution.
@@ -26,7 +28,7 @@ class IntermediateResult {
    * of a query.
    * @param max_column_n The maximum number of relations participating.
    */
-  explicit IntermediateResult(size_t max_column_n);
+  explicit IntermediateResult(RelationStorage &rs, size_t max_column_n);
   /**
    * Deallocates memory used by the row-id columns if necessery.
    */
@@ -68,7 +70,19 @@ class IntermediateResult {
    */
   void deallocate_column(size_t relation_index);
 
+  /**
+   * Creates a joinable object that contains <key, rowid> pairs.
+   * The keys are fetched from relation_storage based on "relation_index"
+   * and "key_index". The row-ids are evaluated as the index of each tuple
+   * of the intermediate result.
+   * @param relation_index Global index of the relation.
+   * @param key_index Index of the key to use.
+   * @return A Joinable object.
+   */
+  Joinable to_joinable(size_t relation_index, size_t key_index);
+
  private:
+  RelationStorage &relation_storage;
   uint64_t **columns;
   size_t max_column_n;
   size_t column_n;

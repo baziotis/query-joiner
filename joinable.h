@@ -21,7 +21,7 @@ using JoinableEntry = Pair<u64, u64>;
  */
 struct Joinable : public Array<JoinableEntry> {
   explicit Joinable(size_t size);
-  Joinable(Array<JoinableEntry> entries);
+  explicit Joinable(Array<JoinableEntry> entries);
 
   struct SortContext {
     size_t from;

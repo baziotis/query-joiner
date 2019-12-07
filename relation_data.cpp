@@ -1,4 +1,5 @@
 #include "relation_data.h"
+#include "joinable.h"
 
 RelationData::RelationData(uint64_t row_n, uint64_t col_n) : Array(row_n) {
   for (size_t i = 0U; i != row_n; ++i) {
@@ -19,4 +20,15 @@ void RelationData::print(FILE *fp, char delimiter) {
       }
     }
   }
+}
+
+Joinable RelationData::to_joinable(size_t key_index) {
+  assert(key_index < this->size);
+  Joinable joinable(this->size);
+  for (size_t i = 0; i < this->size; ++i) {
+    auto entry = joinable[i];
+    entry.first = this->operator[](key_index)[i];
+    entry.second = i;
+  }
+  return joinable;
 }

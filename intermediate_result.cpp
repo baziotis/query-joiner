@@ -1,8 +1,8 @@
 #include <cassert>
 #include "intermediate_result.h"
 
-IntermediateResult::IntermediateResult(size_t max_column_n)
-  : column_n(0), row_n(0), max_column_n(max_column_n) {
+IntermediateResult::IntermediateResult(RelationStorage &rs, size_t max_column_n)
+  : relation_storage(rs), column_n(0), row_n(0), max_column_n(max_column_n) {
   this->columns = new uint64_t*[max_column_n];
   // Initialize to null means that these columns are not allocated yet.
   for (size_t i = 0; i < max_column_n; i++) {
@@ -50,7 +50,22 @@ void IntermediateResult::deallocate_column(size_t relation_index) {
   this->columns[relation_index] = nullptr;
   this->column_n--;
 }
+
 bool IntermediateResult::is_empty() {
   return this->column_n == 0;
+}
+
+Joinable IntermediateResult::to_joinable(size_t relation_index, size_t key_index) {
+  assert(column_is_allocated(relation_index));
+  // Oddly this is the number of columns of relation at "relation_index".
+  assert(key_index < relation_storage[relation_index].size);
+  Joinable joinable(this->row_n);
+  RelationData target_relation = relation_storage[relation_index];
+  for (size_t i = 0; i < this->row_n; ++i) {
+    auto entry = joinable[i];
+    entry.first = target_relation[key_index][i];
+    entry.second = this->columns[relation_index][i];
+  }
+  return joinable;
 }
 
