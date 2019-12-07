@@ -1,0 +1,13 @@
+☐ Extend Command Interpeter to hold Query Batches and provide an Query Batch iteraron in order to access each individual query (George)
+☐ Parse the input query data and store them in a datastructure (Stefanos)
+☐ Change Joinable structure so we can sort it and merge it (George)
+☐ Create joinable from join predicate (i.e 0.1 => Joinable for first column) (Aris)
+☐ Take two individual joinables and join them (merge, one for left hand side and one for right hand side [=]) (George)
+☐ Merge should emit a list of row id pairs so we can then fill them in in the current intermediate result
+☐ Create Joinable from Intermediate Result for specific column (Aris)
+☐ (Optimization) Keep information about whether an Intermediate Result is sorted on a pair of columns (the last pair of columns that got joined essentialy) (Aris?)
+
+NOTES:
+    We should try and use any existing structures that may exist.
+    For example any Pair structure can be created by a using statement.
+    Arrays should be inherited rather than composed in a datastructure.

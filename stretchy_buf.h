@@ -82,6 +82,7 @@ public:
     assert(i < len);
     return data[i];
   }
+
   const T &operator[](size_t i) const {
     assert(i < len);
     return data[i];

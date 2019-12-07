@@ -12,7 +12,8 @@
 // A simple lightweight array type
 // It has constant size with which it is initialized.
 
-template <typename T> struct  Array {
+template<typename T>
+struct Array {
   Array() : data{nullptr}, capacity{0}, size{0} {}
 
   explicit Array(size_t n) : Array() { reserve(n); }
@@ -39,7 +40,7 @@ template <typename T> struct  Array {
     assert(size == 0 && capacity == 0);
     assert(!data);
     // Get aligned memory for faster copying.
-    data = (T *)aligned_alloc(32, cap * sizeof(T));
+    data = (T *) aligned_alloc(32, cap * sizeof(T));
     assert(data);
     capacity = cap;
     size = 0U;
@@ -47,7 +48,7 @@ template <typename T> struct  Array {
 
   inline Array<T> subarray(size_t start_index, size_t end_index) {
     assert(start_index >= 0 && start_index <= end_index &&
-           end_index <= capacity);
+        end_index <= capacity);
     Array<T> subarr{};
     size_t elements_n = end_index - start_index;
     subarr.capacity = subarr.size = elements_n ? elements_n : 1U;

@@ -44,7 +44,7 @@ struct u64 {
   template<typename T, enable_if_integral_t<T> = true>
   operator T() { return v; }
 
-  uint8_t byte(size_t i) const {
+  u8 byte(size_t i) const {
     assert(i < 8);
     return (v >> ((7U - i) * 8U)) & 0xFFU;
   }

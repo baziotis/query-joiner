@@ -3,14 +3,12 @@
 
 #include <cstdint>
 #include "relation_data.h"
+#include "common.h"
+#include "array.h"
 
-struct RelationStorage {
-  explicit RelationStorage(u64 relation_n);
-  RelationData &operator[](u64 index);
-  size_t size() const;
+struct RelationStorage : public Array<RelationData> {
+  explicit RelationStorage(size_t relation_n);
   void print_relations(uint64_t start_index = 0, uint64_t end_index = 0);
- private:
-  Array<RelationData> relations;
 };
 
 #endif //SORT_MERGE_JOIN__RELATIONSTORAGE_H_
