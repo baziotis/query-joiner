@@ -12,7 +12,7 @@ RelationData *FileManager::create_relation(const char *filename) {
   auto *relation = new RelationData(dimensions[0], dimensions[1]);
   for (size_t c = 0; c < dimensions[1]; ++c) {
     bytes_read =
-        fread(relation->get_column(c), sizeof(uint64_t), dimensions[0], fp);
+        fread(relation->operator[](c).data, sizeof(uint64_t), dimensions[0], fp);
     assert(bytes_read > 0);
   }
 

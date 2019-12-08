@@ -36,10 +36,10 @@ class IntermediateResult {
   /**
    * Gives access to a column of the intermediate result.
    * Which is essentially the row-ids of the join result for the specified relation.
-   * @note When refering to "relation_index" we mean the index of the relation
-   * as it appears in a query from clause. For example:
+   * @note When refering to "relation_index" we mean the global index of the relation
+   * NOT as it appears in a query from clause. For example:
    * 4 5 3 | .... | ....
-   * Here relation 4 has index 0, relation 5 has index 1 and finally relation 3 has index 2.
+   * Here relation 4 has index 4, relation 5 has index 5 and finally relation 3 has index 3.
    * @param relation_index The index of the relation
    * @return A pointer to an array of row-ids. This address can be used for reads-writes
    * to the intermediate result.
@@ -55,20 +55,20 @@ class IntermediateResult {
    * @return A boolean value.
    */
   bool column_is_allocated(size_t relation_index);
-  /**
-   * Allocates space for the row-ids of the specified column.
-   * @param relation_index The index of the relation to allocate.
-   * @param row_n Number of rows for the newly allocated relation.
-   */
-  void allocate_column(size_t relation_index, size_t row_n);
-  /**
-   * Deallocates the space of an existing relation row-id column.
-   * This is needed due to size changes in the intermediate result
-   * row numbers. @TODO maybe there's a better solution to multiple
-   * new-deletes(for example: don't delete if the next join result is smaller).
-   * @param relation_index The index of the relation to deallocate.
-   */
-  void deallocate_column(size_t relation_index);
+//  /**
+//   * Allocates space for the row-ids of the specified column.
+//   * @param relation_index The index of the relation to allocate.
+//   * @param row_n Number of rows for the newly allocated relation.
+//   */
+//  void allocate_column(size_t relation_index, size_t row_n);
+//  /**
+//   * Deallocates the space of an existing relation row-id column.
+//   * This is needed due to size changes in the intermediate result
+//   * row numbers. @TODO maybe there's a better solution to multiple
+//   * new-deletes(for example: don't delete if the next join result is smaller).
+//   * @param relation_index The index of the relation to deallocate.
+//   */
+//  void deallocate_column(size_t relation_index);
 
   /**
    * Creates a joinable object that contains <key, rowid> pairs.
@@ -81,7 +81,33 @@ class IntermediateResult {
    */
   Joinable to_joinable(size_t relation_index, size_t key_index);
 
+  /**
+   * Accumulates relations to the intermediate result.
+   * This function can be called at most "max_column_n-1" times
+   * (the number of relations in the from clause of a query).
+   * After this call the ir has more columns(relations).
+   * @TODO make a wrapper that takes the parsing output as arguments.
+   * @note the left-right order of the parameters is irrelevant.
+   * @param left_relation_index Global index of first relation.
+   * @param left_key_index Join column index in first relation.
+   * @param right_relation index Global index of second relation.
+   * @param right_key_index Join column index in second relation.
+   */
+  void execute_join(
+      size_t left_relation_index, size_t left_key_index,
+      size_t right_relation_index, size_t right_key_index);
+
  private:
+  void join_existing_relations(
+      size_t left_relation_index, size_t left_key_index,
+      size_t right_relation_index, size_t right_key_index);
+  void join_initial_relations(
+      size_t left_relation_index, size_t left_key_index,
+      size_t right_relation_index, size_t right_key_index);
+  void join_common_relations(
+      size_t existing_relation_index, size_t existing_relation_key_index,
+      size_t new_relation_index, size_t new_relation_key_index);
+
   RelationStorage &relation_storage;
   uint64_t **columns;
   size_t max_column_n;
