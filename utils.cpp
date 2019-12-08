@@ -30,4 +30,22 @@ bool string_to_u64(char *string, uint64_t *out) {
   return *valid == '\0';
 }
 
+size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
+  int ch;
+  size_t total_read{0U};
+  ssize_t bytes_read;
+  while ((bytes_read = read(fd, &ch, sizeof(char))) > 0 && ch != EOF) {
+    total_read += bytes_read;
+    buffer.push((char)ch);
+    if (ch == '\n') break;
+  }
+  // This is an edge case where the file descriptor is coming from an actual file
+  // and we encountered the end of file but the last line hasn't a newline character
+  // at it so we add it explicitly for uniformity reasons
+  if (bytes_read == 0 && buffer[buffer.len - 1] != '\n') {
+    buffer.push('\n');
+    ++total_read;
+  }
+  return bytes_read != -1 ? total_read : -1;
+}
 

@@ -65,6 +65,10 @@ public:
     cap = n;
   }
 
+  void reset() {
+    len = 0;
+  }
+
   void clear() {
     cap = 0;
     len = 0;

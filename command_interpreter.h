@@ -1,39 +1,92 @@
-//
-// Created by aris on 25/11/19.
-//
-
 #ifndef SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 #define SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 
 #include <cstdio>
+#include <zconf.h>
+#include <cstring>
 #include "relation_storage.h"
+#include "stretchy_buf.h"
+#include "tokenizer.h"
 
-class CommandInterpreter {
- public:
-  explicit CommandInterpreter(FILE* fp = stdin);
+struct CommandInterpreter {
+  explicit CommandInterpreter(int fd = STDIN_FILENO);
+  explicit CommandInterpreter(FILE *fp);
+
+  struct CommandIterator {
+    explicit CommandIterator(Tokenizer tokenizer)
+        : tokenizer_{tokenizer}, command_len_{0U} {
+      command_ = tokenizer_.next_token();
+      if (command_ != nullptr) {
+        command_len_ = strlen(command_);
+      }
+    }
+
+    CommandIterator &operator++() {
+      command_ = tokenizer_.next_token();
+      command_len_ = command_ ? strlen(command_) : 0U;
+      return *this;
+    }
+
+    char *operator*() const {
+      return command_;
+    }
+
+    char *operator->() const {
+      return command_;
+    }
+
+    bool operator==(CommandIterator &rhs) const {
+      bool res = command_len_ == rhs.command_len_ && !strncmp(command_, rhs.command_, command_len_);
+      return res;
+    }
+
+    bool operator!=(CommandIterator &rhs) const {
+      bool res = command_len_ != rhs.command_len_ || strncmp(command_, rhs.command_, command_len_) != 0;
+      return res;
+    }
+
+    char *command_;
+    size_t command_len_;
+    Tokenizer tokenizer_;
+  };
+
   /**
-   * Allocates the Relation Storage data structure.
+   * Read the next group of filenames from the stream provided to the interpreter
+   * until the string DONE is encountered. These filenames get stored in
+   * the internal buffer of the interpreter which can be accessed using the command iterator
    */
-  RelationStorage *get_relation_storage(int index = 0);
+  void read_relation_filenames();
+
   /**
-   * Reads the next filename from the file.
-   * @param filename Allocated string for the filename.
-   * @return CommandRelationFilesEnd if there is no filename, non-zero otherwise.
+   * Read the next group of queries from the stream provided to the interpreter
+   * until the character 'F' is encountered. These queries get stored in
+   * the internal buffer of the interpreter. These batches can be accessed using the command iterator
    */
-  int next_relation_filename(char *filename);
+  void read_query_batch();
+
   /**
-   * Allocates a new string holding the next query.
-   * If no more queries, or end of query group, the string is not allocated.
-   * @param query Allocated string for the filename.
-   * @return 0 if there is no next query, non-zero otherwise.
+   * @return An iterator which provides commands lazily
    */
-  int next_query(char **query_string);
-  static const int CommandEndOfInput = 0;
-  static const int CommandReadNext = 1;
-  static const int CommandRelationFilesEnd = 420;
-  static const int CommandQueryGroupEnd = 666;
+  CommandIterator begin();
+
+  /**
+   * @return A const iterator which provides commands lazily
+   */
+  const CommandIterator begin() const;
+
+  /**
+   * @return An iterator which indicates the end of commands
+   */
+  CommandIterator end();
+
+  /**
+   * @return A const iterator which indicates the end of commands
+   */
+  const CommandIterator end() const;
+
  private:
-  FILE *fp;
+  int fd;
+  StretchyBuf<char> command_buffer;
 };
 
 #endif //SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_

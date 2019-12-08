@@ -63,8 +63,8 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
       aux_copy = mem_context.aux;
     }
 
-    Joinable curr = copy.subarray(context.from, context.to);
-    Joinable curr_aux = aux_copy.subarray(context.from, context.to);
+    Joinable curr = (Joinable)copy.subarray(context.from, context.to);
+    Joinable curr_aux = (Joinable)aux_copy.subarray(context.from, context.to);
 
     MinMaxPair min_max = curr.construct_histogram(hist, byte_pos);
     JoinableEntry *prefix_sum[256] = {nullptr};
