@@ -4,6 +4,7 @@
 #include <cstring>
 #include <vector>
 
+#include "array.h"
 #include "pair.h"
 
 using namespace std;
@@ -120,7 +121,7 @@ Pair<int, int> parse_dotted_part() {
   ++input;
   read_int();
   int v2 = val;
-  return {v1, v2};
+  return {actual_relations[v1], v2};
 }
 
 int is_op(char c) {
@@ -147,20 +148,21 @@ struct Predicate {
   void print() const {
     assert(kind != PRED_TYPE::UNDEFINED);
     if (kind == PRED_TYPE::JOIN) {
-      printf("%d.%d=%d.%d\n", actual_relations[lhs.first], lhs.second,
-                              actual_relations[rhs.first], rhs.second);
+      printf("%d.%d=%d.%d\n", lhs.first, lhs.second, rhs.first, rhs.second);
     } else {
-      printf("%d.%d %c %d\n", actual_relations[lhs.first], lhs.second,
-                                 op, filter_val); 
+      printf("%d.%d %c %d\n", lhs.first, lhs.second, op, filter_val); 
     }
   }
 };
 
 Predicate parse_predicate() {
   // We can assume that LHS is always a dotted part.
+  // Parse the LHS
   Predicate ret;
   Pair<int, int> lhs = parse_dotted_part();
   ret.lhs = lhs;
+  
+  // Get the op
   eat_whitespace();
   char op = *input++;
   assert(is_op(op));
@@ -172,23 +174,27 @@ Predicate parse_predicate() {
     int v = val;
     eat_whitespace();
     if (*input == '.') {
-      ++input;
       // We have a join predicate. The RHS is
       // a dotted part (which turn, has 2 parts, the left
       // part of the dot and the right). But we have already
       // read the left part (`v`) so we will read manually the
       // right part.
+      ++input;
       read_int();
+      int left_part_of_dot = actual_relations[v];
       int right_part_of_dot = val;
-      Pair<int, int> rhs = {v, right_part_of_dot};
+      Pair<int, int> rhs = {left_part_of_dot, right_part_of_dot};
       ret.kind = PRED_TYPE::JOIN;
       ret.rhs = rhs;
     } else {
+      // It's a filter predicate with the filter val being
+      // the int we just read (`v`).
       ret.kind = PRED_TYPE::FILTER;
       ret.filter_val = v;
       ret.op = op;
     }
   } else {
+      // It's definitely a filter predicate.
       read_int();
       ret.kind = PRED_TYPE::FILTER;
       ret.filter_val = val;
@@ -197,17 +203,49 @@ Predicate parse_predicate() {
   return ret;
 }
 
-int main() {
-  //test_parse_actual_relations();
-  input = "3 1 7 | 0.1 > 1000 & 0.1=1.2 & 1.2=2.3 & 2.1=0.2 |";
+// Assuming that the input is correct.
+int find_num_predicates() {
+  const char *temp = input;
+  int res = 0;
+  while (*temp) {
+    if (*temp == '&')
+      res++;
+    ++temp;
+  }
+  return res + 1;
+}
+
+struct ParseQueryResult {
+  Array<Predicate> predicates;
+  Array<Pair<int, int>> sums;
+};
+
+// Assuming that the input is correct.
+int find_num_sums() {
+  const char *temp = input;
+  int res = 0;
+  while (*temp) {
+    if (*temp == '.')
+      res++;
+    ++temp;
+  }
+  return res;
+}
+
+ParseQueryResult parse_query(const char *query) {
+  test_parse_actual_relations();
+  input = query;
+  // Parse the actual relations and fill the `actual_relations` map.
   parse_actual_relations();
-  assert(actual_relations[0] == 3);
-  assert(actual_relations[1] == 1);
-  assert(actual_relations[2] == 7);
-  
+
+  // Find the number of predicates
+  int num_predicates = find_num_predicates();
+  Array<Predicate> predicates(num_predicates);
+
+  // Parse and save predicates.
   eat_whitespace();
   while (*input != '|') {
-    parse_predicate().print();
+    predicates.push(parse_predicate());
     eat_whitespace();
     int c = *input;
     assert(c == '&' || c == '|');
@@ -215,5 +253,29 @@ int main() {
     if (c == '|')
       break;
     eat_whitespace();
+  }
+
+  // Parse and save sums.
+  eat_whitespace();
+  int num_sums = find_num_sums();
+  Array<Pair<int, int>> sums(num_sums);
+  while (*input) {
+    sums.push(parse_dotted_part());
+    eat_whitespace();
+  }
+
+  return {predicates, sums};
+}
+
+int main() {
+  ParseQueryResult pqr =
+    parse_query("3 1 7 | 0.1 > 1000 & 0.1=1.2 & 1.2=2.3 & 2.1=0.2 | 0.0 1.1");
+
+  for (Predicate p : pqr.predicates) {
+    p.print();
+  }
+  printf("\n");
+  for (Pair<int, int> s : pqr.sums) {
+    printf("%d, %d\n", s.first, s.second);
   }
 }
