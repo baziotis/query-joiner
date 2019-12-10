@@ -29,8 +29,8 @@ void test_queries() {
   FUNCTION_TEST();
   constexpr char *input_fname = (char *const) "queries.txt";
   constexpr char *queries[] = {
-      (char* const) "0 1 2|0.1=1.2&1.0=2.1&0.1>3000|0.0 0.1",
-      (char* const) "10 5 14|10.19=5.2&14.20=5000|5.10"
+    (char *const) "0 1 2|0.1=1.2&1.0=2.1&0.1>3000|0.0 0.1",
+    (char *const) "10 5 14|0.19=1.2 & 2.20=5000| 1.10";
   };
   FILE *fp = fopen(input_fname, "r");
   assert(fp);

@@ -1,12 +1,12 @@
 #ifndef SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 #define SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 
-#include <cstdio>
-#include <zconf.h>
-#include <cstring>
 #include "relation_storage.h"
 #include "stretchy_buf.h"
 #include "tokenizer.h"
+#include <cstdio>
+#include <cstring>
+#include <unistd.h>
 
 struct CommandInterpreter {
   explicit CommandInterpreter(int fd = STDIN_FILENO);

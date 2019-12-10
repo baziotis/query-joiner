@@ -4,8 +4,6 @@
 #include <cstring>
 #include <vector>
 
-#include "array.h"
-#include "pair.h"
 #include "parse.h"
 
 using namespace std;
@@ -55,7 +53,7 @@ static void parse_actual_relations() {
   int val;
   // Start reading ints
   while (read_int(&val) == Read_Int_Succ) {
-    assert(val > 0 && val <= max_relations);
+    assert(val >= 0 && val <= max_relations);
     actual_relations[i] = val;
     ++i;
   }
@@ -239,19 +237,4 @@ ParseQueryResult parse_query(const char *query) {
   }
 
   return {predicates, sums};
-}
-
-int main() {
-  test_parse_actual_relations();
-  test_parse_predicate();
-  ParseQueryResult pqr =
-    parse_query("3 1 7 | 0.1 > 1000 & 0.1=1.2 & 1.2=2.3 & 2.1=0.2 | 0.0 1.1");
-
-  for (Predicate p : pqr.predicates) {
-    p.print();
-  }
-  printf("\n");
-  for (Pair<int, int> s : pqr.sums) {
-    printf("%d, %d\n", s.first, s.second);
-  }
 }

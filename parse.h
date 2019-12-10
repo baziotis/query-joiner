@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cassert>
+
+#include "array.h"
+#include "pair.h"
+
 enum class PRED {
   UNDEFINED,
   JOIN,
@@ -32,3 +37,4 @@ struct ParseQueryResult {
   Array<Pair<int, int>> sums;
 };
 
+ParseQueryResult parse_query(const char *query);
