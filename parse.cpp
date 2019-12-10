@@ -9,12 +9,12 @@
 
 using namespace std;
 
-constexpr int Input_End = 0;
-constexpr int Input_Cont = 1;
+static constexpr int Input_End = 0;
+static constexpr int Input_Cont = 1;
 
-FILE *fp;
+static FILE *fp;
 
-bool is_empty_or_whitespace(char *str) {
+static bool is_empty_or_whitespace(char *str) {
   size_t len = strlen(str);
   if (len == 0)
     return true;
@@ -25,7 +25,7 @@ bool is_empty_or_whitespace(char *str) {
   return true;
 }
 
-int next_query(char **query_string) {
+static int next_query(char **query_string) {
   char command_string[1024];
   char *status;
 
@@ -44,16 +44,15 @@ int next_query(char **query_string) {
   return Input_Cont;
 }
 
-constexpr int Read_Int_Succ = 0;
-constexpr int Read_Int_Err = 1;
+static constexpr int Read_Int_Succ = 0;
+static constexpr int Read_Int_Err = 1;
 
-const char *input;
-int val;
+static const char *input;
 
 // Read an integer found in `input`. Assume that
 // there is at least one non-whitespace character in the input.
 // Save value in `val`.
-int read_int() {
+static int read_int(int *out) {
   assert(input);
   // Skip leading whitespace.
   while (isspace(*input))
@@ -70,14 +69,14 @@ int read_int() {
     // Oveflow check
     assert(sum >= 0);
   }
-  val = sum;
+  *out = sum;
   return Read_Int_Succ;
 }
 
-constexpr int max_relations = 12;
-int actual_relations[max_relations + 1];
+static constexpr int max_relations = 12;
+static int actual_relations[max_relations + 1];
 
-void eat_whitespace() {
+static void eat_whitespace() {
   while (isspace(*input))
     ++input;
 }
@@ -85,10 +84,11 @@ void eat_whitespace() {
 // Assume that input contains whitespace-separated numbers
 // that end with '|'. Fill the map `actual_relations` which maps
 // virtual relations to actual relations.
-void parse_actual_relations() {
+static void parse_actual_relations() {
   int i = 0;
+  int val;
   // Start reading ints
-  while (read_int() == Read_Int_Succ) {
+  while (read_int(&val) == Read_Int_Succ) {
     assert(val > 0 && val <= max_relations);
     actual_relations[i] = val;
     ++i;
@@ -97,7 +97,7 @@ void parse_actual_relations() {
   ++input;
 }
 
-void test_parse_actual_relations() {
+static void test_parse_actual_relations() {
   input = "1 2 4|";
   parse_actual_relations();
   assert(actual_relations[0] == 1);
@@ -112,30 +112,29 @@ void test_parse_actual_relations() {
 }
 
 // Parse parts of predicates in that form: x.y
-Pair<int, int> parse_dotted_part() {
+static Pair<int, int> parse_dotted_part() {
+  int v1, v2;
   eat_whitespace();
-  read_int();
-  int v1 = val;
+  assert(read_int(&v1) == Read_Int_Succ);
   eat_whitespace();
   assert(*input == '.');
   ++input;
-  read_int();
-  int v2 = val;
+  assert(read_int(&v2) == Read_Int_Succ);
   return {actual_relations[v1], v2};
 }
 
-int is_op(char c) {
+static int is_pred_op(char c) {
   return (c == '=' || c == '<' || c == '>');
 }
 
-enum class PRED_TYPE {
+enum class PRED {
   UNDEFINED,
   JOIN,
   FILTER,
 };
 
 struct Predicate {
-  PRED_TYPE kind;
+  PRED kind;
   Pair<int, int> lhs;
   union {
     struct {
@@ -146,8 +145,8 @@ struct Predicate {
   };
 
   void print() const {
-    assert(kind != PRED_TYPE::UNDEFINED);
-    if (kind == PRED_TYPE::JOIN) {
+    assert(kind != PRED::UNDEFINED);
+    if (kind == PRED::JOIN) {
       printf("%d.%d=%d.%d\n", lhs.first, lhs.second, rhs.first, rhs.second);
     } else {
       printf("%d.%d %c %d\n", lhs.first, lhs.second, op, filter_val); 
@@ -155,7 +154,8 @@ struct Predicate {
   }
 };
 
-Predicate parse_predicate() {
+static Predicate parse_predicate() {
+  int val;
   // We can assume that LHS is always a dotted part.
   // Parse the LHS
   Predicate ret;
@@ -165,13 +165,12 @@ Predicate parse_predicate() {
   // Get the op
   eat_whitespace();
   char op = *input++;
-  assert(is_op(op));
+  assert(is_pred_op(op));
   if (op == '=') {
     // At this point, we can't really know if we have a filter
     // predicate or a join predicate. So, we read an int in
     // any case.
-    read_int();
-    int v = val;
+    assert(read_int(&val) == Read_Int_Succ);
     eat_whitespace();
     if (*input == '.') {
       // We have a join predicate. The RHS is
@@ -180,23 +179,23 @@ Predicate parse_predicate() {
       // read the left part (`v`) so we will read manually the
       // right part.
       ++input;
-      read_int();
-      int left_part_of_dot = actual_relations[v];
-      int right_part_of_dot = val;
+      int left_part_of_dot, right_part_of_dot;
+      left_part_of_dot = actual_relations[val];
+      assert(read_int(&right_part_of_dot) == Read_Int_Succ);
       Pair<int, int> rhs = {left_part_of_dot, right_part_of_dot};
-      ret.kind = PRED_TYPE::JOIN;
+      ret.kind = PRED::JOIN;
       ret.rhs = rhs;
     } else {
       // It's a filter predicate with the filter val being
       // the int we just read (`v`).
-      ret.kind = PRED_TYPE::FILTER;
-      ret.filter_val = v;
+      ret.kind = PRED::FILTER;
+      ret.filter_val = val;
       ret.op = op;
     }
   } else {
       // It's definitely a filter predicate.
-      read_int();
-      ret.kind = PRED_TYPE::FILTER;
+      assert(read_int(&val) == Read_Int_Succ);
+      ret.kind = PRED::FILTER;
       ret.filter_val = val;
       ret.op = op;
   }
@@ -204,7 +203,7 @@ Predicate parse_predicate() {
 }
 
 // Assuming that the input is correct.
-int find_num_predicates() {
+static int find_num_predicates() {
   const char *temp = input;
   int res = 0;
   while (*temp) {
@@ -221,7 +220,7 @@ struct ParseQueryResult {
 };
 
 // Assuming that the input is correct.
-int find_num_sums() {
+static int find_num_sums() {
   const char *temp = input;
   int res = 0;
   while (*temp) {
@@ -232,8 +231,59 @@ int find_num_sums() {
   return res;
 }
 
+static void parse_all_predicates(Array<Predicate> *predicates) {
+  eat_whitespace();
+  while (*input != '|') {
+    predicates->push(parse_predicate());
+    eat_whitespace();
+    int c = *input;
+    assert(c == '&' || c == '|');
+    ++input;
+    if (c == '|')
+      break;
+    eat_whitespace();
+  }
+}
+
+static void test_parse_predicate() {
+  input = "3 1 7 | 0.1 > 1000 & 0.1=1.2 & 1.2=2.3 & 2.1=0.2 | 0.0 1.1";
+  parse_actual_relations();
+  // Find the number of predicates
+  int num_predicates = find_num_predicates();
+  Array<Predicate> predicates(num_predicates);
+
+  parse_all_predicates(&predicates);
+
+  // 0.1 > 1000
+  assert(predicates[0].kind == PRED::FILTER);
+  assert(predicates[0].lhs.first == 3);
+  assert(predicates[0].lhs.second == 1);
+  assert(predicates[0].op == '>');
+  assert(predicates[0].filter_val == 1000);
+
+  // 0.1 = 1.2
+  assert(predicates[1].kind == PRED::JOIN);
+  assert(predicates[1].lhs.first == 3);
+  assert(predicates[1].lhs.second == 1);
+  assert(predicates[1].rhs.first == 1);
+  assert(predicates[1].rhs.second == 2);
+
+  // 1.2 = 2.3
+  assert(predicates[2].kind == PRED::JOIN);
+  assert(predicates[2].lhs.first == 1);
+  assert(predicates[2].lhs.second == 2);
+  assert(predicates[2].rhs.first == 7);
+  assert(predicates[2].rhs.second == 3);
+
+  // 2.1 = 0.2
+  assert(predicates[3].kind == PRED::JOIN);
+  assert(predicates[3].lhs.first == 7);
+  assert(predicates[3].lhs.second == 1);
+  assert(predicates[3].rhs.first == 3);
+  assert(predicates[3].rhs.second == 2);
+}
+
 ParseQueryResult parse_query(const char *query) {
-  test_parse_actual_relations();
   input = query;
   // Parse the actual relations and fill the `actual_relations` map.
   parse_actual_relations();
@@ -243,17 +293,7 @@ ParseQueryResult parse_query(const char *query) {
   Array<Predicate> predicates(num_predicates);
 
   // Parse and save predicates.
-  eat_whitespace();
-  while (*input != '|') {
-    predicates.push(parse_predicate());
-    eat_whitespace();
-    int c = *input;
-    assert(c == '&' || c == '|');
-    ++input;
-    if (c == '|')
-      break;
-    eat_whitespace();
-  }
+  parse_all_predicates(&predicates);
 
   // Parse and save sums.
   eat_whitespace();
@@ -268,6 +308,8 @@ ParseQueryResult parse_query(const char *query) {
 }
 
 int main() {
+  test_parse_actual_relations();
+  test_parse_predicate();
   ParseQueryResult pqr =
     parse_query("3 1 7 | 0.1 > 1000 & 0.1=1.2 & 1.2=2.3 & 2.1=0.2 | 0.0 1.1");
 
