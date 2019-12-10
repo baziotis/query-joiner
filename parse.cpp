@@ -164,9 +164,17 @@ static int find_num_sums() {
 }
 
 static void parse_all_predicates(Array<Predicate> *predicates) {
+  assert(predicates->size > 0);
+  ssize_t left = -1, right = predicates->size;
   eat_whitespace();
-  while (*input != '|') {
-    predicates->push(parse_predicate());
+  while (true) {
+    Predicate pr = parse_predicate();
+    assert(left < right);
+    if (pr.kind == PRED::FILTER) {
+      predicates->data[++left] = pr;
+    } else {
+      predicates->data[--right] = pr;
+    }
     eat_whitespace();
     int c = *input;
     assert(c == '&' || c == '|');
@@ -183,6 +191,8 @@ static void test_parse_predicate() {
   // Find the number of predicates
   int num_predicates = find_num_predicates();
   Array<Predicate> predicates(num_predicates);
+  // Hacky way so that we don't have to push.
+  predicates.size = num_predicates;
 
   parse_all_predicates(&predicates);
 
@@ -223,6 +233,8 @@ ParseQueryResult parse_query(const char *query) {
   // Find the number of predicates
   int num_predicates = find_num_predicates();
   Array<Predicate> predicates(num_predicates);
+  // Hacky way so that we don't have to push.
+  predicates.size = num_predicates;
 
   // Parse and save predicates.
   parse_all_predicates(&predicates);

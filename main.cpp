@@ -8,6 +8,9 @@ int main() {
   interpreter.read_query_batch();
   for (char *query : interpreter) {
     ParseQueryResult pqr = parse_query(query);
+    for (Predicate p : pqr.predicates) {
+      p.print();
+    }
   }
   fclose(fp);
   return 0;
