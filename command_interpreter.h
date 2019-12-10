@@ -1,7 +1,6 @@
 #ifndef SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 #define SORT_MERGE_JOIN__COMMAND_INTERPRETER_H_
 
-#include "relation_storage.h"
 #include "stretchy_buf.h"
 #include "tokenizer.h"
 #include <cstdio>
