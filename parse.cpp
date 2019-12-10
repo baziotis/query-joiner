@@ -6,43 +6,9 @@
 
 #include "array.h"
 #include "pair.h"
+#include "parse.h"
 
 using namespace std;
-
-static constexpr int Input_End = 0;
-static constexpr int Input_Cont = 1;
-
-static FILE *fp;
-
-static bool is_empty_or_whitespace(char *str) {
-  size_t len = strlen(str);
-  if (len == 0)
-    return true;
-  for (size_t i = 0; i < len; i++) {
-    if (str[i] != ' ' && str[i] != '\n' && str[i] != '\t')
-      return false;
-  }
-  return true;
-}
-
-static int next_query(char **query_string) {
-  char command_string[1024];
-  char *status;
-
-  FILE *input = stdin;
-  do {
-    status = fgets(command_string, 1024, input);
-    if (status == nullptr)
-      return Input_End;
-    command_string[strlen(command_string) - 1] = '\0';
-  } while (is_empty_or_whitespace(command_string));
-
-  if (!strncmp("F", command_string, sizeof("F")))
-    return Input_End; // TODO: Group end
-  *query_string = new char[strlen(command_string) + 1];
-  strcpy(*query_string, command_string);
-  return Input_Cont;
-}
 
 static constexpr int Read_Int_Succ = 0;
 static constexpr int Read_Int_Err = 1;
@@ -127,33 +93,6 @@ static int is_pred_op(char c) {
   return (c == '=' || c == '<' || c == '>');
 }
 
-enum class PRED {
-  UNDEFINED,
-  JOIN,
-  FILTER,
-};
-
-struct Predicate {
-  PRED kind;
-  Pair<int, int> lhs;
-  union {
-    struct {
-      int filter_val;
-      int op;
-    };
-    Pair<int, int> rhs;
-  };
-
-  void print() const {
-    assert(kind != PRED::UNDEFINED);
-    if (kind == PRED::JOIN) {
-      printf("%d.%d=%d.%d\n", lhs.first, lhs.second, rhs.first, rhs.second);
-    } else {
-      printf("%d.%d %c %d\n", lhs.first, lhs.second, op, filter_val); 
-    }
-  }
-};
-
 static Predicate parse_predicate() {
   int val;
   // We can assume that LHS is always a dotted part.
@@ -213,11 +152,6 @@ static int find_num_predicates() {
   }
   return res + 1;
 }
-
-struct ParseQueryResult {
-  Array<Predicate> predicates;
-  Array<Pair<int, int>> sums;
-};
 
 // Assuming that the input is correct.
 static int find_num_sums() {
