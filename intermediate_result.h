@@ -97,14 +97,25 @@ class IntermediateResult {
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
 
+  /**
+   * Executes the select clause of the query and performs an aggregate sum on the join results.
+   * All relation indices passed in the parameter should be present in the ir.
+   *
+   * @param relation_indices An ordered collection of pairs of <relation_index, column_index>
+   * as they appear in the select clause.
+   * @return An ordered collection of the aggregate sums for the join result.
+   * The size of the collection should be equal to the parameter collection.
+   */
+  StretchyBuf<uint64_t> execute_select(StretchyBuf<Pair<size_t, size_t>> relation_indices);
+
  private:
   void join_existing_relations(
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
-  void join_initial_relations(
+  void execute_initial_join(
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
-  void join_common_relations(
+  void execute_common_join(
       size_t existing_relation_index, size_t existing_relation_key_index,
       size_t new_relation_index, size_t new_relation_key_index);
 

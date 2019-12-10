@@ -68,27 +68,27 @@ void IntermediateResult::execute_join(size_t left_relation_index,
         right_relation_index, right_key_index);
   } else if (!column_is_allocated(left_relation_index) && !column_is_allocated(right_relation_index)) {
     // This case should occur only once, when the intermediate result is empty.
-    join_initial_relations(
+    execute_initial_join(
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
   } else if (column_is_allocated(left_relation_index) && !column_is_allocated(right_relation_index)) {
     // This is the common case where one of the join relations exist in the ir
     // and the other one is new...
-    join_common_relations(
+    execute_common_join(
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
   } else if (!column_is_allocated(left_relation_index) && column_is_allocated(right_relation_index)) {
     // This is the common case where one of the join relations exist in the ir
     // and the other one is new...
-    join_common_relations(
+    execute_common_join(
         right_relation_index, right_key_index,
         left_relation_index, left_key_index);
   }
 }
-void IntermediateResult::join_initial_relations(size_t left_relation_index,
-                                                size_t left_key_index,
-                                                size_t right_relation_index,
-                                                size_t right_key_index) {
+void IntermediateResult::execute_initial_join(size_t left_relation_index,
+                                              size_t left_key_index,
+                                              size_t right_relation_index,
+                                              size_t right_key_index) {
   // Because this is the initial join, make sure the ir is empty.
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
@@ -109,10 +109,10 @@ void IntermediateResult::join_initial_relations(size_t left_relation_index,
   this->column_n = 2;
 }
 
-void IntermediateResult::join_common_relations(size_t existing_relation_index,
-                                               size_t existing_relation_key_index,
-                                               size_t new_relation_index,
-                                               size_t new_relation_key_index) {
+void IntermediateResult::execute_common_join(size_t existing_relation_index,
+                                             size_t existing_relation_key_index,
+                                             size_t new_relation_index,
+                                             size_t new_relation_key_index) {
   assert(column_is_allocated(existing_relation_index));
   assert(!column_is_allocated(new_relation_index));
   Joinable r_left = this->to_joinable(existing_relation_index, existing_relation_key_index);
@@ -148,6 +148,29 @@ void IntermediateResult::join_existing_relations(size_t left_relation_index,
                                                  size_t right_key_index) {
   assert(false);
   // TODO maybe this case can be handled as a WHERE clause... (possibly at parse time).
+}
+
+StretchyBuf<uint64_t> IntermediateResult::execute_select(StretchyBuf<Pair<size_t, size_t>> relation_column_pairs) {
+  StretchyBuf<uint64_t> result;
+  for (auto pair: relation_column_pairs) {
+    size_t relation_index = pair.first;
+    size_t column_index = pair.second;
+    // Assert that we are requesting columns that exist in the ir.
+    assert(column_is_allocated(relation_index));
+    // Use these rowids to index into the relation data.
+    auto rowids = columns[relation_index];
+    uint64_t sum = 0;
+    for (size_t i = 0; i < this->row_n; i++) {
+      // Get each rowid of the intermediate result.
+      auto rowid = rowids[i];
+      // Accumulate the specified column value into a sum.
+      sum += (uint64_t)this->relation_storage[relation_index][column_index][rowid];
+    }
+    // Push the sum of each selected column into a collection.
+    // The order of the sums of each column is the same as the order in the parameter collection.
+    result.push(sum);
+  }
+  return result;
 }
 
 
