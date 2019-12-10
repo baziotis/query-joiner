@@ -160,7 +160,26 @@ int Joinable::compare_entry(const void *v1, const void *v2) {
   return lhs < rhs ? -1 : lhs == rhs ? 0 : 1;
 }
 
-StretchyBuf<Join::RowIdPair> Join::operator()(Joinable lhs, Joinable rhs) {
+StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
+  StretchyBuf<Join::JoinRow> res{};
+  for (size_t i = 0U; i != lhs.size; ++i) {
+    StretchyBuf<u64> right_row_ids{};
+    size_t j = 0U;
+    u64 lhs_key = lhs[i].first;
+    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
+    if (j == rhs.size) continue;
+    while (j < rhs.size && lhs_key == rhs[j].first) {
+      right_row_ids.push(rhs[j].second);
+      ++j;
+    }
 
+    if (right_row_ids.len) {
+      right_row_ids.shrink_to_fit();
+      res.push(make_pair(lhs[i].second, right_row_ids));
+      right_row_ids = StretchyBuf<u64>{};
+    }
+  }
+  res.shrink_to_fit();
+  return res;
 }
 

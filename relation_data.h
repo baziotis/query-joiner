@@ -19,6 +19,8 @@ struct RelationData : public Array<Array<u64>> {
    */
   Joinable to_joinable(size_t key_index);
   void print(FILE *fp = stdout, char delimiter = ' ');
+
+  static RelationData from_binary_file(const char *filename);
 };
 
 #endif //SORT_MERGE_JOIN__RELATION_DATA_H_

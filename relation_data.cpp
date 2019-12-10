@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include "relation_data.h"
 #include "joinable.h"
 
@@ -31,4 +32,21 @@ Joinable RelationData::to_joinable(size_t key_index) {
     entry.second = i;
   }
   return joinable;
+}
+
+RelationData RelationData::from_binary_file(const char *filename) {
+  int fd = ::open(filename, O_RDONLY);
+  uint64_t header[2] = {0};
+  read(fd, header, sizeof(header));
+  uint64_t nr_rows = header[0];
+  uint64_t nr_cols = header[1];
+  RelationData data(nr_rows, nr_cols);
+  for (size_t i = 0U; i != nr_rows; ++i) {
+    Array<u64> cols(nr_cols);
+    read(fd, cols.data, nr_cols * sizeof(uint64_t));
+    cols.size = nr_cols;
+    data.push(cols);
+  }
+  close(fd);
+  return data;
 }

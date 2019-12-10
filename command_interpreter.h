@@ -84,6 +84,11 @@ struct CommandInterpreter {
    */
   const CommandIterator end() const;
 
+  /**
+   * @return The remaining number of commands to be consumed
+   */
+  size_t remaining_commands();
+
  private:
   int fd;
   StretchyBuf<char> command_buffer;

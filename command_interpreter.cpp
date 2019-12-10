@@ -50,3 +50,8 @@ CommandInterpreter::CommandIterator CommandInterpreter::end() {
 const CommandInterpreter::CommandIterator CommandInterpreter::end() const {
   return CommandInterpreter::CommandIterator(Tokenizer::emtpy_tokenizer());
 }
+
+size_t CommandInterpreter::remaining_commands() {
+  Tokenizer tok{command_buffer.data, command_buffer.len, '\n'};
+  return tok.remaining_tokens();
+}
