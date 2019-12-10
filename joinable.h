@@ -2,6 +2,7 @@
 #define SORT_MERGE_JOIN__JOINABLE_H_
 
 #include <cstdint>
+#include <unistd.h>
 #include "array.h"
 #include "pair.h"
 #include "stretchy_buf.h"
@@ -34,7 +35,16 @@ struct Joinable : public Array<JoinableEntry> {
     StretchyBuf<SortContext> stack;
   };
 
+  /**
+   * Sorts the joinable using Radix Sort like algorithm
+   * @param mem_context: Memory context that keeps pre-allocated data structures needed for the sorting
+   * @param sort_threshold: A threshold that determines when to use quicksort for element groups
+   */
   void sort(MemoryContext mem_context, size_t sort_threshold);
+
+  void print(int fd = STDERR_FILENO);
+
+  static int compare_entry(const void *v1, const void *v2);
 
  private:
   /**
