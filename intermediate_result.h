@@ -9,6 +9,7 @@
 #include <cstdint>
 #include "joinable.h"
 #include "relation_storage.h"
+#include "parse.h"
 
 /**
  * Represents the intermediate result of a query predicate execution.
@@ -20,7 +21,7 @@
  * This information is made known at query-parse time.
  *(essentially the number of tables in the 'from' clause of the query).
  */
-class IntermediateResult {
+class IntermediateResult : Array<StretchyBuf<u64>> {
  public:
   /**
    * Constructs an empty intermediate result that can hold up to
@@ -28,7 +29,7 @@ class IntermediateResult {
    * of a query.
    * @param max_column_n The maximum number of relations participating.
    */
-  explicit IntermediateResult(RelationStorage &rs, size_t max_column_n);
+  explicit IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr, size_t max_column_n);
   /**
    * Deallocates memory used by the row-id columns if necessery.
    */
@@ -44,7 +45,7 @@ class IntermediateResult {
    * @return A pointer to an array of row-ids. This address can be used for reads-writes
    * to the intermediate result.
    */
-  uint64_t *get_column(size_t relation_index);
+  StretchyBuf<u64> &get_column(size_t relation_index);
   bool is_empty();
   size_t column_count();
   size_t row_count();
@@ -55,26 +56,13 @@ class IntermediateResult {
    * @return A boolean value.
    */
   bool column_is_allocated(size_t relation_index);
-//  /**
-//   * Allocates space for the row-ids of the specified column.
-//   * @param relation_index The index of the relation to allocate.
-//   * @param row_n Number of rows for the newly allocated relation.
-//   */
-//  void allocate_column(size_t relation_index, size_t row_n);
-//  /**
-//   * Deallocates the space of an existing relation row-id column.
-//   * This is needed due to size changes in the intermediate result
-//   * row numbers. @TODO maybe there's a better solution to multiple
-//   * new-deletes(for example: don't delete if the next join result is smaller).
-//   * @param relation_index The index of the relation to deallocate.
-//   */
-//  void deallocate_column(size_t relation_index);
 
   /**
    * Creates a joinable object that contains <key, rowid> pairs.
    * The keys are fetched from relation_storage based on "relation_index"
    * and "key_index". The row-ids are evaluated as the index of each tuple
-   * of the intermediate result.
+   * of the intermediate result. All filtering associated with this relation
+   * is performed at this step.
    * @param relation_index Global index of the relation.
    * @param key_index Index of the key to use.
    * @return A Joinable object.
@@ -109,7 +97,7 @@ class IntermediateResult {
   StretchyBuf<uint64_t> execute_select(StretchyBuf<Pair<size_t, size_t>> relation_indices);
 
  private:
-  void join_existing_relations(
+  void execute_join_as_filter(
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
   void execute_initial_join(
@@ -118,9 +106,17 @@ class IntermediateResult {
   void execute_common_join(
       size_t existing_relation_index, size_t existing_relation_key_index,
       size_t new_relation_index, size_t new_relation_key_index);
+  /**
+   * Get's all the associated where clauses for the specified relation in the query.
+   * The data is drawn from the ParseQueryResult.
+   * @note where clauses of the form 0.1 = 1.2 are not included in the resulting array.
+   * @param relation_index The index of the specified relation.
+   * @return An array of where predicates.
+   */
+  Array<Predicate> get_relation_filters(size_t relation_index);
 
   RelationStorage &relation_storage;
-  uint64_t **columns;
+  ParseQueryResult &parse_query_result;
   size_t max_column_n;
   size_t column_n;
   size_t row_n;

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <unistd.h>
+#include <cstddef>
 #include "array.h"
 #include "pair.h"
 #include "stretchy_buf.h"
@@ -21,6 +22,7 @@ using JoinableEntry = Pair<u64, u64>;
  * of a Relation or an Intermediate result
  */
 struct Joinable : public Array<JoinableEntry> {
+  explicit Joinable();
   explicit Joinable(size_t size);
   explicit Joinable(Array<JoinableEntry> entries);
 

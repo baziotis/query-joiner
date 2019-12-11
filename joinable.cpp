@@ -3,6 +3,9 @@
 #include "joinable.h"
 #include "report_utils.h"
 
+
+Joinable::Joinable() :  Array() {}
+
 Joinable::Joinable(size_t size) : Array(size) {}
 
 Joinable::Joinable(Array<JoinableEntry> entries) : Array(entries) {}

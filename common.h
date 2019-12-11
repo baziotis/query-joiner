@@ -72,6 +72,10 @@ struct u64 {
   bool operator>=(const u64 rhs) const {
     return v >= rhs.v;
   }
+
+  u64 operator+(const u64 rhs) const {
+    return v + v;
+  }
 };
 
 #define DEFAULT_CONSTRUCTOR(Typename) Typename() = default;
