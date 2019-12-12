@@ -37,7 +37,7 @@ static int read_int(int *out) {
   return Read_Int_Succ;
 }
 
-static constexpr int max_relations = 12;
+static constexpr int max_relations = 14;
 static int actual_relations[max_relations + 1];
 
 static void eat_whitespace() {

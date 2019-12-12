@@ -41,16 +41,27 @@ bool IntermediateResult::is_empty() {
 }
 
 Joinable IntermediateResult::to_joinable(size_t relation_index, size_t key_index) {
+//  assert(column_is_allocated(relation_index));
+//  // Oddly this is the number of columns of relation at "relation_index".
+//  assert(key_index < relation_storage[relation_index].size);
+//  assert(this->row_n != 0);
+//  RelationData target_relation = relation_storage[relation_index];
+//  Joinable joinable(this->row_n);
+//  for (size_t i = 0; i < this->row_n; ++i) {
+//      u64 rowid = this->operator[](relation_index)[i];
+//      JoinableEntry entry { target_relation[key_index][rowid], i };
+//      joinable.push(entry);
+//  }
+//  return joinable;
+
   assert(column_is_allocated(relation_index));
   // Oddly this is the number of columns of relation at "relation_index".
   assert(key_index < relation_storage[relation_index].size);
-  assert(this->row_n != 0);
-  RelationData target_relation = relation_storage[relation_index];
-  Joinable joinable(this->row_n);
-  for (size_t i = 0; i < this->row_n; ++i) {
-      u64 rowid = this->operator[](relation_index)[i];
-      JoinableEntry entry { target_relation[key_index][rowid], i };
-      joinable.push(entry);
+  Array<u64> target_columns = relation_storage[relation_index][key_index];
+  StretchyBuf<u64> relation_row_ids = (*this)[relation_index];
+  Joinable joinable(relation_row_ids.len);
+  for (u64 row_id : relation_row_ids) {
+    joinable.push(make_pair(target_columns[row_id], row_id));
   }
   return joinable;
 }
@@ -84,6 +95,8 @@ void IntermediateResult::execute_join(size_t left_relation_index,
     execute_common_join(
         right_relation_index, right_key_index,
         left_relation_index, left_key_index);
+  } else {
+    assert(false); // This is bad.
   }
 }
 void IntermediateResult::execute_initial_join(size_t left_relation_index,
@@ -142,7 +155,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     if (!column_is_allocated(j))
       continue;
     StretchyBuf<u64> aux_column(join_result.len);
-    auto current_column = this->get_column(j);
+    auto current_column = this->operator[](j);
     for (auto join_row: join_result) {
       auto rowid_1 = join_row.first;
       size_t len = join_row.second.len;
