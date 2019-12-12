@@ -3,8 +3,7 @@
 #include "joinable.h"
 #include "report_utils.h"
 
-
-Joinable::Joinable() :  Array() {}
+Joinable::Joinable() : Array() {}
 
 Joinable::Joinable(size_t size) : Array(size) {}
 
@@ -169,6 +168,13 @@ Joinable Joinable::empty() {
 }
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
+  // TODO: Please remove this. Sorting should be done explicitly. Also the sort threshold
+  // should be taken from the OS configuration in order to be aligned with L1D cache
+  Joinable aux(std::max(lhs.size, rhs.size));
+  Joinable::MemoryContext mem_context{aux, StretchyBuf<Joinable::SortContext>()};
+  lhs.sort(mem_context, 32 * 1024);
+  mem_context.stack.reset();
+  rhs.sort(mem_context, 32 * 1024);
   StretchyBuf<Join::JoinRow> res{};
   for (size_t i = 0U; i != lhs.size; ++i) {
     StretchyBuf<u64> right_row_ids{};

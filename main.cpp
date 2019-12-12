@@ -11,9 +11,9 @@
  * storage.insert_from_filenames(interpreter.begin(), interpreter.end());
  */
 
-int main() {
+int main(int argc, char *args[]) {
   // Αdd a file here that contains the full input. (filenames, queries).
-  FILE *fp = fopen("../workloads/small/input", "r");
+  FILE *fp = fopen(args[1], "r");
   assert(fp);
 
   CommandInterpreter interpreter{fp};
