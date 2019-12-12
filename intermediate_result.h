@@ -29,7 +29,7 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    * of a query.
    * @param max_column_n The maximum number of relations participating.
    */
-  explicit IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr, size_t max_column_n);
+  explicit IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr);
   /**
    * Deallocates memory used by the row-id columns if necessery.
    */
@@ -94,8 +94,9 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    * @return An ordered collection of the aggregate sums for the join result.
    * The size of the collection should be equal to the parameter collection.
    */
-  StretchyBuf<uint64_t> execute_select(StretchyBuf<Pair<size_t, size_t>> relation_indices);
+  StretchyBuf<uint64_t> execute_select(Array<Pair<int, int>> relation_indices);
 
+  StretchyBuf<uint64_t> execute_query();
  private:
   void execute_join_as_filter(
       size_t left_relation_index, size_t left_key_index,
@@ -113,7 +114,7 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    * @param relation_index The index of the specified relation.
    * @return An array of where predicates.
    */
-  Array<Predicate> get_relation_filters(size_t relation_index);
+  StretchyBuf<Predicate> get_relation_filters(size_t relation_index);
 
   RelationStorage &relation_storage;
   ParseQueryResult &parse_query_result;

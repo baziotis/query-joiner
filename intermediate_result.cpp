@@ -1,13 +1,19 @@
 #include <cassert>
 #include "intermediate_result.h"
 
-IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr, size_t max_column_n)
-  : relation_storage(rs), parse_query_result(pqr), column_n(0),
-  row_n(0), max_column_n(max_column_n) {
-
+IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
+  : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
+  row_n(0), max_column_n(rs.size) {
+  this->size = rs.size;
+  for (size_t i = 0; i < this->size; i++) {
+    this->operator[](i).data = nullptr;
+  }
 }
 
 IntermediateResult::~IntermediateResult() {
+  for (auto col: *this) {
+    col.free();
+  }
   this->clear_and_free();
 }
 
@@ -27,7 +33,7 @@ size_t IntermediateResult::row_count() {
 
 bool IntermediateResult::column_is_allocated(size_t relation_index) {
   assert(relation_index < this->max_column_n);
-  return this->get_column(relation_index).data != nullptr;
+  return this->operator[](relation_index).data != nullptr;
 }
 
 bool IntermediateResult::is_empty() {
@@ -38,35 +44,13 @@ Joinable IntermediateResult::to_joinable(size_t relation_index, size_t key_index
   assert(column_is_allocated(relation_index));
   // Oddly this is the number of columns of relation at "relation_index".
   assert(key_index < relation_storage[relation_index].size);
-  auto filter_predicates = get_relation_filters(relation_index);
-  Joinable joinable;
+  assert(this->row_n != 0);
   RelationData target_relation = relation_storage[relation_index];
+  Joinable joinable(this->row_n);
   for (size_t i = 0; i < this->row_n; ++i) {
-    bool tuple_is_match = true;
-    for (auto filter: filter_predicates) {
-      auto compare_value = target_relation[filter.lhs.second][filter.lhs.first];
-      switch (filter.op) {
-        case '>':
-          tuple_is_match &= compare_value.v > filter.filter_val;
-          break;
-        case '<':
-          tuple_is_match &= compare_value.v < filter.filter_val;
-          break;
-        case '=':
-          tuple_is_match &= compare_value.v == filter.filter_val;
-          break;
-        default:
-          assert(false); // Not so good.
-          break;
-      }
-    }
-    if (tuple_is_match) {
-      JoinableEntry entry {
-          target_relation[key_index][i],
-          this->operator[](relation_index)[i]
-      };
+      u64 rowid = this->operator[](relation_index)[i];
+      JoinableEntry entry { target_relation[key_index][rowid], i };
       joinable.push(entry);
-    }
   }
   return joinable;
 }
@@ -110,8 +94,15 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
   // Get the two relations to join as joinables.
-  Joinable r1 = relation_storage[left_relation_index].to_joinable(left_key_index);
-  Joinable r2 = relation_storage[right_relation_index].to_joinable(right_key_index);
+  Joinable r1 = relation_storage[left_relation_index]
+      .to_joinable(left_key_index, get_relation_filters(left_relation_index));
+  Joinable r2 = relation_storage[right_relation_index]
+      .to_joinable(right_key_index, get_relation_filters(right_relation_index));
+  if (r1.size == 0 || r2.size == 0) {
+    // Exit the query execution...
+    this->row_n = 0;
+    return;
+  }
   Join join;
   auto join_result = join(r1, r2);
   StretchyBuf<u64> column1;
@@ -135,8 +126,15 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
                                              size_t new_relation_key_index) {
   assert(column_is_allocated(existing_relation_index));
   assert(!column_is_allocated(new_relation_index));
+  assert(this->row_n != 0);
   Joinable r_left = this->to_joinable(existing_relation_index, existing_relation_key_index);
-  Joinable r_right = relation_storage[new_relation_index].to_joinable(new_relation_key_index);
+  Joinable r_right = relation_storage[new_relation_index]
+      .to_joinable(new_relation_key_index, get_relation_filters(new_relation_index));
+  if (r_left.size == 0 || r_right.size == 0) {
+    // Exit the query execution...
+    this->row_n = 0;
+    return;
+  }
   Join join;
   auto join_result = join(r_left, r_right);
   // Loop for the allocated existing columns.
@@ -175,6 +173,7 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
                                                 size_t right_key_index) {
   assert(column_is_allocated(left_relation_index));
   assert(column_is_allocated(right_relation_index));
+  assert(this->row_n != 0);
   // Find the row_ids of the ir that match the filter.
   StretchyBuf<size_t> ir_rowids;
   for (size_t i = 0; i < this->row_n; i++) {
@@ -201,19 +200,23 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
   this->row_n = ir_rowids.len;
 }
 
-StretchyBuf<uint64_t> IntermediateResult::execute_select(StretchyBuf<Pair<size_t, size_t>> relation_column_pairs) {
+StretchyBuf<uint64_t> IntermediateResult::execute_select(Array<Pair<int, int>> relation_column_pairs) {
   StretchyBuf<uint64_t> result;
   for (auto pair: relation_column_pairs) {
     size_t relation_index = pair.first;
     size_t column_index = pair.second;
+    if (this->row_n == 0) {
+      result.push(0);
+      continue;
+    }
     // Assert that we are requesting columns that exist in the ir.
-    assert(column_is_allocated(relation_index));
+    // assert(column_is_allocated(relation_index)); // Removed this due to empty ir's.
     // Use these rowids to index into the relation data.
     auto rowids = this->operator[](relation_index);
-    u64 sum = 0;
+    uint64_t sum = 0;
     for (auto rowid: rowids) {
       // Accumulate the specified column value into a sum.
-      sum = sum + this->relation_storage[relation_index][column_index][rowid];
+      sum = sum + this->relation_storage[relation_index][column_index][rowid].v;
     }
     // Push the sum of each selected column into a collection.
     // The order of the sums of each column is the same as the order in the parameter collection.
@@ -222,8 +225,8 @@ StretchyBuf<uint64_t> IntermediateResult::execute_select(StretchyBuf<Pair<size_t
   return result;
 }
 
-Array<Predicate> IntermediateResult::get_relation_filters(size_t relation_index) {
-  Array<Predicate> result;
+StretchyBuf<Predicate> IntermediateResult::get_relation_filters(size_t relation_index) {
+  StretchyBuf<Predicate> result;
   for (auto predicate: this->parse_query_result.predicates) {
     if (predicate.kind != PRED::FILTER)
       continue; // If the predicate is not a simple filter continue...
@@ -232,4 +235,15 @@ Array<Predicate> IntermediateResult::get_relation_filters(size_t relation_index)
     result.push(predicate);
   }
   return result;
+}
+StretchyBuf<uint64_t> IntermediateResult::execute_query() {
+  for (auto predicate: this->parse_query_result.predicates) {
+    if (predicate.kind != PRED::JOIN)
+      continue;
+    this->execute_join(predicate.lhs.first, predicate.lhs.second,
+        predicate.rhs.first, predicate.rhs.second);
+    if (this->row_n == 0)
+      break;
+  }
+  return this->execute_select(parse_query_result.sums);
 }

@@ -162,6 +162,11 @@ int Joinable::compare_entry(const void *v1, const void *v2) {
   JoinableEntry rhs = *(JoinableEntry *) v2;
   return lhs < rhs ? -1 : lhs == rhs ? 0 : 1;
 }
+Joinable Joinable::empty() {
+  Joinable empty(1);
+  empty.size = 0;
+  return empty;
+}
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   StretchyBuf<Join::JoinRow> res{};

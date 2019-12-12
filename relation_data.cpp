@@ -2,19 +2,21 @@
 #include "relation_data.h"
 #include "joinable.h"
 
-RelationData::RelationData(uint64_t row_n, uint64_t col_n) : Array(row_n) {
-  for (size_t i = 0U; i != row_n; ++i) {
-    this->push(Array<u64>(col_n));
+RelationData::RelationData(uint64_t row_n, uint64_t col_n) : Array(col_n) {
+  for (size_t i = 0U; i != col_n; ++i) {
+    this->push(Array<u64>(row_n));
   }
 }
 
 void RelationData::print(FILE *fp, char delimiter) {
-  fprintf(fp, "%ld %ld\n", this->size, (*this)[0].size);
-  for (Array<u64> cols : *this) {
-    size_t i = 0U;
-    for (u64 c : cols) {
-      fprintf(fp, "%lu", c.v);
-      if (i == cols.size - 1) {
+  size_t col_n = this->size;
+  size_t row_n =  (*this)[0].size;
+  fprintf(fp, "%ld %ld\n", col_n, row_n);
+
+  for (size_t i = 0; i < row_n; i++) {
+    for (size_t j = 0; j < col_n; j++) {
+      fprintf(fp, "%lu", this->operator[](j).operator[](i).v);
+      if (j == col_n - 1) {
         fprintf(fp, "\n");
       } else {
         fprintf(fp, "%c", delimiter);
@@ -23,14 +25,42 @@ void RelationData::print(FILE *fp, char delimiter) {
   }
 }
 
-Joinable RelationData::to_joinable(size_t key_index) {
+Joinable RelationData::to_joinable(size_t key_index, StretchyBuf<Predicate> filter_predicates) {
   assert(key_index < this->size);
-  Joinable joinable(this->size);
-  for (size_t i = 0; i < this->size; ++i) {
-    auto entry = joinable[i];
-    entry.first = this->operator[](key_index)[i];
-    entry.second = i;
+  size_t row_n = this->operator[](0).size;
+  StretchyBuf<JoinableEntry> list;
+  for (size_t i = 0; i < row_n; ++i) {
+    bool tuple_is_match = true;
+    for (auto filter: filter_predicates) {
+      auto compare_value = this->operator[](filter.lhs.second)[i];
+      switch (filter.op) {
+        case '>':
+          tuple_is_match &= compare_value.v > filter.filter_val;
+          break;
+        case '<':
+          tuple_is_match &= compare_value.v < filter.filter_val;
+          break;
+        case '=':
+          tuple_is_match &= compare_value.v == filter.filter_val;
+          break;
+        default:
+          assert(false); // Not so good.
+          break;
+      }
+    }
+    if (tuple_is_match) {
+      JoinableEntry entry {this->operator[](key_index)[i], i};
+      list.push(entry);
+    }
   }
+  // Convert list to array.
+  if (list.len == 0)
+    return Joinable::empty();
+  Joinable joinable(list.len);
+  for (auto e: list) {
+    joinable.push(e);
+  }
+  list.free();
   return joinable;
 }
 
@@ -41,11 +71,11 @@ RelationData RelationData::from_binary_file(const char *filename) {
   uint64_t nr_rows = header[0];
   uint64_t nr_cols = header[1];
   RelationData data(nr_rows, nr_cols);
-  for (size_t i = 0U; i != nr_rows; ++i) {
-    Array<u64> cols(nr_cols);
-    read(fd, cols.data, nr_cols * sizeof(uint64_t));
-    cols.size = nr_cols;
-    data.push(cols);
+  for (size_t i = 0U; i != nr_cols; ++i) {
+    Array<u64> row(nr_rows);
+    read(fd, row.data, nr_rows * sizeof(uint64_t));
+    row.size = nr_rows;
+    data[i] = row;
   }
   close(fd);
   return data;

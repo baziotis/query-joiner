@@ -2,7 +2,7 @@
 #include "command_interpreter.h"
 #include "utils.h"
 
-static constexpr char *DONE = (char *const) "done";
+static constexpr char *DONE = (char *const) "Done";
 static constexpr size_t DONE_LEN = 4;
 
 CommandInterpreter::CommandInterpreter(int fd) : fd{fd}, command_buffer(100) {}

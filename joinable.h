@@ -26,6 +26,8 @@ struct Joinable : public Array<JoinableEntry> {
   explicit Joinable(size_t size);
   explicit Joinable(Array<JoinableEntry> entries);
 
+  static Joinable empty();
+
   struct SortContext {
     size_t from;
     size_t to;

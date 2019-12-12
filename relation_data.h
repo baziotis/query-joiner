@@ -6,6 +6,7 @@
 #include "array.h"
 #include "common.h"
 #include "joinable.h"
+#include "parse.h"
 
 struct RelationData : public Array<Array<u64>> {
   RelationData(uint64_t row_n, uint64_t col_n);
@@ -17,7 +18,7 @@ struct RelationData : public Array<Array<u64>> {
    * @param key_index The index of the join column.
    * @return A Joinable object.
    */
-  Joinable to_joinable(size_t key_index);
+  Joinable to_joinable(size_t key_index, StretchyBuf<Predicate> filter_predicates);
   void print(FILE *fp = stdout, char delimiter = ' ');
 
   static RelationData from_binary_file(const char *filename);
