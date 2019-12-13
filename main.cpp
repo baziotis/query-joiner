@@ -9,7 +9,7 @@ int main() {
   for (char *query : interpreter) {
     ParseQueryResult pqr = parse_query(query);
     for (Predicate p : pqr.predicates) {
-      p.print();
+      //p.print();
     }
   }
   fclose(fp);

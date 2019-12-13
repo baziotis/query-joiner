@@ -32,7 +32,9 @@ struct Predicate {
   }
 };
 
+constexpr int max_relations = 20;
 struct ParseQueryResult {
+  int actual_relations[max_relations + 1];
   Array<Predicate> predicates;
   Array<Pair<int, int>> sums;
 };
