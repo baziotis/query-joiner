@@ -48,6 +48,34 @@ struct u64 {
     assert(i < 8);
     return (v >> ((7U - i) * 8U)) & 0xFFU;
   }
+
+  bool operator==(const u64 rhs) const {
+    return v == rhs.v;
+  }
+
+  bool operator!=(const u64 rhs) const {
+    return v != rhs.v;
+  }
+
+  bool operator<(const u64 rhs) const {
+    return v < rhs.v;
+  }
+
+  bool operator>(const u64 rhs) const {
+    return v > rhs.v;
+  }
+
+  bool operator<=(const u64 rhs) const {
+    return v <= rhs.v;
+  }
+
+  bool operator>=(const u64 rhs) const {
+    return v >= rhs.v;
+  }
+
+  u64 operator+(const u64 rhs) const {
+    return v + v;
+  }
 };
 
 #define DEFAULT_CONSTRUCTOR(Typename) Typename() = default;
@@ -67,7 +95,6 @@ struct u64 {
 #define DEFAULT_CONSTRUCT(Typename)                                            \
   DEFAULT_CONSTRUCTOR(Typename)                                                \
   DEFAULT_COPY_AND_MOVE(Typename)
-
 
 #if LOG
 

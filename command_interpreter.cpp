@@ -2,7 +2,7 @@
 #include "command_interpreter.h"
 #include "utils.h"
 
-static constexpr char *DONE = (char *const) "done";
+static constexpr char *DONE = (char *const) "Done";
 static constexpr size_t DONE_LEN = 4;
 
 CommandInterpreter::CommandInterpreter(int fd) : fd{fd}, command_buffer(100) {}
@@ -49,4 +49,9 @@ CommandInterpreter::CommandIterator CommandInterpreter::end() {
 
 const CommandInterpreter::CommandIterator CommandInterpreter::end() const {
   return CommandInterpreter::CommandIterator(Tokenizer::emtpy_tokenizer());
+}
+
+size_t CommandInterpreter::remaining_commands() {
+  Tokenizer tok{command_buffer.data, command_buffer.len, '\n'};
+  return tok.remaining_tokens();
 }

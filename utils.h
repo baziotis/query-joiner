@@ -20,4 +20,6 @@ bool string_to_u64(char *string, uint64_t *out);
 
 size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd = STDIN_FILENO);
 
+bool file_exists(const char *filename);
+
 #endif

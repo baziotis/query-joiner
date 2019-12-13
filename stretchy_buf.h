@@ -2,7 +2,7 @@
 #define STRETCHY_BUF_H
 
 #include "common.h"
-#include <stdlib.h>
+#include <cstdlib>
 
 #include <limits>
 
@@ -11,7 +11,7 @@
 // A stretchy buffer without C++ magic.
 // This is essentially a simple std::vector
 
-template <typename T>
+template<typename T>
 struct StretchyBuf {
   // Members
   size_t cap, len;
@@ -27,7 +27,7 @@ struct StretchyBuf {
   // No destructor, no copy and rvalue constructors.
   // It works like a C struct in those moves.
 
-private:
+ private:
   void _grow(size_t new_len) {
     constexpr size_t size_t_max = std::numeric_limits<size_t>::max();
     assert(cap <= (size_t_max - 1) / 2);
@@ -35,12 +35,12 @@ private:
     assert(new_len <= new_cap);
     assert(new_cap <= (size_t_max) / sizeof(T));
     size_t new_size = new_cap * sizeof(T);
-    data = (T *)realloc(data, new_size);
+    data = (T *) realloc(data, new_size);
     assert(data);
     cap = new_cap;
   }
 
-public:
+ public:
   void push(T v) {
     constexpr size_t size_t_max = std::numeric_limits<size_t>::max();
     assert(len < size_t_max);
@@ -76,10 +76,18 @@ public:
 
   void free() {
     if (data != nullptr)
-      free(data);
+      ::free(data);
     data = nullptr;
     len = 0;
     cap = 0;
+  }
+
+  void shrink_to_fit() {
+    assert(len);
+
+    data = (T *) realloc(data, len * sizeof(T));
+    assert(data);
+    cap = len;
   }
 
   T &operator[](size_t i) {

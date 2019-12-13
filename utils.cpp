@@ -36,7 +36,7 @@ size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
   ssize_t bytes_read;
   while ((bytes_read = read(fd, &ch, sizeof(char))) > 0 && ch != EOF) {
     total_read += bytes_read;
-    buffer.push((char)ch);
+    buffer.push((char) ch);
     if (ch == '\n') break;
   }
   // This is an edge case where the file descriptor is coming from an actual file
@@ -47,5 +47,9 @@ size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
     ++total_read;
   }
   return bytes_read != -1 ? total_read : -1;
+}
+
+bool file_exists(const char *filename) {
+  return access(filename, F_OK) != -1;
 }
 

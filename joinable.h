@@ -2,6 +2,8 @@
 #define SORT_MERGE_JOIN__JOINABLE_H_
 
 #include <cstdint>
+#include <unistd.h>
+#include <cstddef>
 #include "array.h"
 #include "pair.h"
 #include "stretchy_buf.h"
@@ -20,8 +22,11 @@ using JoinableEntry = Pair<u64, u64>;
  * of a Relation or an Intermediate result
  */
 struct Joinable : public Array<JoinableEntry> {
+  explicit Joinable();
   explicit Joinable(size_t size);
   explicit Joinable(Array<JoinableEntry> entries);
+
+  static Joinable empty();
 
   struct SortContext {
     size_t from;
@@ -34,7 +39,16 @@ struct Joinable : public Array<JoinableEntry> {
     StretchyBuf<SortContext> stack;
   };
 
+  /**
+   * Sorts the joinable using Radix Sort like algorithm
+   * @param mem_context: Memory context that keeps pre-allocated data structures needed for the sorting
+   * @param sort_threshold: A threshold that determines when to use quicksort for element groups
+   */
   void sort(MemoryContext mem_context, size_t sort_threshold);
+
+  void print(int fd = STDERR_FILENO);
+
+  static int compare_entry(const void *v1, const void *v2);
 
  private:
   /**
@@ -78,19 +92,19 @@ struct Joinable : public Array<JoinableEntry> {
  */
 struct Join {
   /**
-   * A pair of row_ids.
+   * A row of a join result.
    * First: The row_id of the left Joinable
-   * Second: The row_id of the right Joinable
+   * Second: An array of row_ids belonging to the right Joinable matched to the row_id of the left Joinable
    */
-  using RowIdPair = Pair<u64, u64>;
+  using JoinRow = Pair<u64, StretchyBuf<u64>>;
 
   /**
    * The () (call) operator which does the actual join.
    * @param lhs: The left hand side Joinable
    * @param rhs: The right hand side Joinable
-   * @return An array of RowIdPairs to be used in an intermediate result
+   * @return An array of Join Rows to be used in order to fill the intermediate result
    */
-  StretchyBuf<RowIdPair> operator()(Joinable lhs, Joinable rhs);
+  StretchyBuf<JoinRow> operator()(Joinable lhs, Joinable rhs);
 };
 
 #endif //SORT_MERGE_JOIN__JOINABLE_H_

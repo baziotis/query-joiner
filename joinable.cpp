@@ -1,5 +1,9 @@
 #include <cstring>
+#include <random>
 #include "joinable.h"
+#include "report_utils.h"
+
+Joinable::Joinable() : Array() {}
 
 Joinable::Joinable(size_t size) : Array(size) {}
 
@@ -41,6 +45,54 @@ void Joinable::copy_data(Joinable &dest, JoinableEntry **prefix_sum, const size_
   }
 }
 
+static std::default_random_engine generator;
+
+static void insertion_sort(JoinableEntry *data, size_t length) {
+  for (size_t i = 1U; i < length; ++i) {
+    JoinableEntry key = data[i];
+    ssize_t j = i - 1U;
+    while (j >= 0 && data[j] > key) {
+      data[j + 1U] = data[j];
+      --j;
+    }
+    data[j + 1U] = key;
+  }
+}
+
+static ssize_t partition(JoinableEntry *data, ssize_t left_index, ssize_t right_index) {
+  std::uniform_int_distribution<ssize_t> distribution(left_index, right_index);
+  ssize_t random_index = distribution(generator);
+  std::swap(data[random_index], data[right_index]);
+  JoinableEntry pivot = data[right_index];
+  ssize_t i = left_index - 1;
+  for (ssize_t j = left_index; j != right_index; ++j) {
+    if (data[j] <= pivot) {
+      ++i;
+      std::swap(data[i], data[j]);
+    }
+  }
+  std::swap(data[i + 1], data[right_index]);
+  return i + 1;
+}
+
+static void quicksort(JoinableEntry *data, ssize_t left_index, ssize_t right_index) {
+  while (left_index < right_index) {
+    ssize_t length = right_index - left_index + 1;
+    if (length <= 16) {
+      insertion_sort(data + left_index, length);
+      return;
+    }
+    ssize_t partition_index = partition(data, left_index, right_index);
+    if (partition_index - left_index < right_index - partition_index) {
+      quicksort(data, left_index, partition_index - 1);
+      left_index = partition_index + 1;
+    } else {
+      quicksort(data, partition_index + 1, right_index);
+      right_index = partition_index - 1;
+    }
+  }
+}
+
 void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) {
   Joinable copy = *this;
   Joinable aux_copy = mem_context.aux;
@@ -63,8 +115,8 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
       aux_copy = mem_context.aux;
     }
 
-    Joinable curr = (Joinable)copy.subarray(context.from, context.to);
-    Joinable curr_aux = (Joinable)aux_copy.subarray(context.from, context.to);
+    Joinable curr = (Joinable) copy.subarray(context.from, context.to);
+    Joinable curr_aux = (Joinable) aux_copy.subarray(context.from, context.to);
 
     MinMaxPair min_max = curr.construct_histogram(hist, byte_pos);
     JoinableEntry *prefix_sum[256] = {nullptr};
@@ -83,13 +135,13 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
       ptrdiff_t from_index = context.from + (psum_base - curr_aux_base);
       if (nr_elements > 1) {
         if ((nr_elements * sizeof(JoinableEntry)) <= sort_threshold) {
-//          quick_sort(psum_base, 0, nelements - 1);
+          quicksort(psum_base, 0, nr_elements - 1);
           if ((byte_pos & 1) == 0) {
             memcpy(this->data + from_index, psum_base, nr_elements * sizeof(JoinableEntry));
           }
         } else {
           ptrdiff_t to_index = from_index + nr_elements;
-          stack.push(SortContext{(size_t)(from_index), (size_t)(to_index), byte_pos + 1});
+          stack.push(SortContext{(size_t) (from_index), (size_t) (to_index), byte_pos + 1});
         }
       } else if (nr_elements == 1 && (byte_pos & 1) == 0) {
         (*this)[from_index] = mem_context.aux[from_index];
@@ -98,7 +150,50 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
   }
 }
 
-StretchyBuf<Join::RowIdPair> Join::operator()(Joinable lhs, Joinable rhs) {
+void Joinable::print(int fd) {
+  for (JoinableEntry e : *this) {
+    freport(fd, "Key = %lu, RowId = %lu", e.first.v, e.second.v);
+  }
+}
 
+int Joinable::compare_entry(const void *v1, const void *v2) {
+  JoinableEntry lhs = *(JoinableEntry *) v1;
+  JoinableEntry rhs = *(JoinableEntry *) v2;
+  return lhs < rhs ? -1 : lhs == rhs ? 0 : 1;
+}
+Joinable Joinable::empty() {
+  Joinable empty(1);
+  empty.size = 0;
+  return empty;
+}
+
+StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
+  // TODO: Please remove this. Sorting should be done explicitly. Also the sort threshold
+  // should be taken from the OS configuration in order to be aligned with L1D cache
+  Joinable aux(std::max(lhs.size, rhs.size));
+  Joinable::MemoryContext mem_context{aux, StretchyBuf<Joinable::SortContext>()};
+  lhs.sort(mem_context, 32 * 1024);
+  mem_context.stack.reset();
+  rhs.sort(mem_context, 32 * 1024);
+  StretchyBuf<Join::JoinRow> res{};
+  for (size_t i = 0U; i != lhs.size; ++i) {
+    StretchyBuf<u64> right_row_ids{};
+    size_t j = 0U;
+    u64 lhs_key = lhs[i].first;
+    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
+    if (j == rhs.size) continue;
+    while (j < rhs.size && lhs_key == rhs[j].first) {
+      right_row_ids.push(rhs[j].second);
+      ++j;
+    }
+
+    if (right_row_ids.len) {
+      right_row_ids.shrink_to_fit();
+      res.push(make_pair(lhs[i].second, right_row_ids));
+      right_row_ids = StretchyBuf<u64>{};
+    }
+  }
+  res.shrink_to_fit();
+  return res;
 }
 
