@@ -34,21 +34,14 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    * Deallocates memory used by the row-id columns if necessery.
    */
   ~IntermediateResult();
-  /**
-   * Gives access to a column of the intermediate result.
-   * Which is essentially the row-ids of the join result for the specified relation.
-   * @note When refering to "relation_index" we mean the global index of the relation
-   * NOT as it appears in a query from clause. For example:
-   * 4 5 3 | .... | ....
-   * Here relation 4 has index 4, relation 5 has index 5 and finally relation 3 has index 3.
-   * @param relation_index The index of the relation
-   * @return A pointer to an array of row-ids. This address can be used for reads-writes
-   * to the intermediate result.
-   */
-  StretchyBuf<u64> &get_column(size_t relation_index);
+
+  StretchyBuf<uint64_t> execute_query();
+
+ private:
   bool is_empty();
   size_t column_count();
   size_t row_count();
+
   /**
    * Get's a boolean value specifying if there is allocated space for
    * the row-ids of the specified relation.
@@ -96,8 +89,6 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    */
   StretchyBuf<uint64_t> execute_select(Array<Pair<int, int>> relation_indices);
 
-  StretchyBuf<uint64_t> execute_query();
- private:
   void execute_join_as_filter(
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
@@ -115,6 +106,19 @@ class IntermediateResult : Array<StretchyBuf<u64>> {
    * @return An array of where predicates.
    */
   StretchyBuf<Predicate> get_relation_filters(size_t relation_index);
+
+  size_t get_global_relation_index(size_t local_relation_index);
+
+  static void free_join_result(StretchyBuf<Join::JoinRow> &join_result);
+
+  struct Sorting {
+    bool is_none();
+    void set_none();
+    int sorted_relation_index_1;
+    int relation_1_sorting_key;
+    int sorted_relation_index_2;
+    int relation_2_sorting_key;
+  } sorting;
 
   RelationStorage &relation_storage;
   ParseQueryResult &parse_query_result;

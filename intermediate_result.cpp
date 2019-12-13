@@ -8,6 +8,7 @@ IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pq
   for (size_t i = 0; i < this->size; i++) {
     this->operator[](i).data = nullptr;
   }
+  this->sorting.set_none();
 }
 
 IntermediateResult::~IntermediateResult() {
@@ -15,12 +16,6 @@ IntermediateResult::~IntermediateResult() {
     col.free();
   }
   this->clear_and_free();
-}
-
-StretchyBuf<u64> &IntermediateResult::get_column(size_t relation_index) {
-  assert(relation_index < this->max_column_n);
-  assert(this->column_is_allocated(relation_index));
-  return this->operator[](relation_index);
 }
 
 size_t IntermediateResult::column_count() {
@@ -41,27 +36,16 @@ bool IntermediateResult::is_empty() {
 }
 
 Joinable IntermediateResult::to_joinable(size_t relation_index, size_t key_index) {
-//  assert(column_is_allocated(relation_index));
-//  // Oddly this is the number of columns of relation at "relation_index".
-//  assert(key_index < relation_storage[relation_index].size);
-//  assert(this->row_n != 0);
-//  RelationData target_relation = relation_storage[relation_index];
-//  Joinable joinable(this->row_n);
-//  for (size_t i = 0; i < this->row_n; ++i) {
-//      u64 rowid = this->operator[](relation_index)[i];
-//      JoinableEntry entry { target_relation[key_index][rowid], i };
-//      joinable.push(entry);
-//  }
-//  return joinable;
-
   assert(column_is_allocated(relation_index));
   // Oddly this is the number of columns of relation at "relation_index".
-  assert(key_index < relation_storage[relation_index].size);
-  Array<u64> target_columns = relation_storage[relation_index][key_index];
-  StretchyBuf<u64> relation_row_ids = (*this)[relation_index];
-  Joinable joinable(relation_row_ids.len);
-  for (u64 row_id : relation_row_ids) {
-    joinable.push(make_pair(target_columns[row_id], row_id));
+  assert(key_index < relation_storage[get_global_relation_index(relation_index)].size);// @TODO AddMap !
+  assert(this->row_n != 0);
+  RelationData target_relation = relation_storage[get_global_relation_index(relation_index)];// @TODO AddMap !
+  Joinable joinable(this->row_n);
+  for (size_t i = 0; i < this->row_n; ++i) {
+      u64 rowid = this->operator[](relation_index)[i];
+      JoinableEntry entry { target_relation[key_index][rowid], i };
+      joinable.push(entry);
   }
   return joinable;
 }
@@ -78,6 +62,7 @@ void IntermediateResult::execute_join(size_t left_relation_index,
     execute_join_as_filter(
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
+    return; // Sorting state of the ir is preserved here so exit...
   } else if (!column_is_allocated(left_relation_index) && !column_is_allocated(right_relation_index)) {
     // This case should occur only once, when the intermediate result is empty.
     execute_initial_join(
@@ -98,7 +83,13 @@ void IntermediateResult::execute_join(size_t left_relation_index,
   } else {
     assert(false); // This is bad.
   }
+  // Update information about the sorting state of the ir. Later used as optimization.
+  this->sorting.sorted_relation_index_1 = left_relation_index;
+  this->sorting.relation_1_sorting_key = left_key_index;
+  this->sorting.sorted_relation_index_2 = right_relation_index;
+  this->sorting.relation_2_sorting_key = right_key_index;
 }
+
 void IntermediateResult::execute_initial_join(size_t left_relation_index,
                                               size_t left_key_index,
                                               size_t right_relation_index,
@@ -107,10 +98,12 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
   // Get the two relations to join as joinables.
-  Joinable r1 = relation_storage[left_relation_index]
+  Joinable r1 = relation_storage[get_global_relation_index(left_relation_index)]// @TODO AddMap !
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
-  Joinable r2 = relation_storage[right_relation_index]
-      .to_joinable(right_key_index, get_relation_filters(right_relation_index));
+  Joinable r2 = relation_storage[get_global_relation_index(right_relation_index)] // @TODO AddMap !
+      .to_joinable(right_key_index,
+          left_relation_index != right_relation_index ?
+          get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
   if (r1.size == 0 || r2.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
@@ -118,6 +111,7 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   }
   Join join;
   auto join_result = join(r1, r2);
+  r1.clear_and_free(); r2.clear_and_free();
   StretchyBuf<u64> column1;
   StretchyBuf<u64> column2;
   for (auto join_row: join_result) {
@@ -127,6 +121,7 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
       column2.push(rowid_2);
     }
   }
+  free_join_result(join_result);
   this->operator[](left_relation_index) = column1;
   this->operator[](right_relation_index) = column2;
   this->column_n = 2;
@@ -141,7 +136,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   assert(!column_is_allocated(new_relation_index));
   assert(this->row_n != 0);
   Joinable r_left = this->to_joinable(existing_relation_index, existing_relation_key_index);
-  Joinable r_right = relation_storage[new_relation_index]
+  Joinable r_right = relation_storage[get_global_relation_index(new_relation_index)]// @TODO AddMap !
       .to_joinable(new_relation_key_index, get_relation_filters(new_relation_index));
   if (r_left.size == 0 || r_right.size == 0) {
     // Exit the query execution...
@@ -150,6 +145,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   }
   Join join;
   auto join_result = join(r_left, r_right);
+  r_left.clear_and_free(); r_right.clear_and_free();
   // Loop for the allocated existing columns.
   for (size_t j = 0; j < this->max_column_n; ++j) {
     if (!column_is_allocated(j))
@@ -175,6 +171,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
       aux_column.push(rowid_2);
     }
   }
+  free_join_result(join_result);
   this->operator[](new_relation_index) = aux_column;
   this->column_n++;
   this->row_n = aux_column.len;
@@ -191,9 +188,9 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
   StretchyBuf<size_t> ir_rowids;
   for (size_t i = 0; i < this->row_n; i++) {
     auto left_rowid = this->operator[](left_relation_index)[i];
-    auto left_value = relation_storage[left_relation_index][left_key_index][left_rowid];
+    auto left_value = relation_storage[get_global_relation_index(left_relation_index)][left_key_index][left_rowid];// @TODO AddMap !
     auto right_rowid = this->operator[](right_relation_index)[i];
-    auto right_value = relation_storage[right_relation_index][right_key_index][right_rowid];
+    auto right_value = relation_storage[get_global_relation_index(right_relation_index)][right_key_index][right_rowid];// @TODO AddMap !
     if (left_value == right_value) {
       ir_rowids.push(i);
     }
@@ -203,7 +200,7 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
     if (!column_is_allocated(j))
       continue;
     StretchyBuf<u64> aux_column(ir_rowids.len);
-    auto current_column = this->get_column(j);
+    auto current_column = this->operator[](j);
     for (auto ir_rowid: ir_rowids) {
       aux_column.push(current_column[ir_rowid]);
     }
@@ -229,7 +226,7 @@ StretchyBuf<uint64_t> IntermediateResult::execute_select(Array<Pair<int, int>> r
     uint64_t sum = 0;
     for (auto rowid: rowids) {
       // Accumulate the specified column value into a sum.
-      sum = sum + this->relation_storage[relation_index][column_index][rowid].v;
+      sum = sum + this->relation_storage[get_global_relation_index(relation_index)][column_index][rowid].v; // @TODO AddMap !
     }
     // Push the sum of each selected column into a collection.
     // The order of the sums of each column is the same as the order in the parameter collection.
@@ -249,6 +246,7 @@ StretchyBuf<Predicate> IntermediateResult::get_relation_filters(size_t relation_
   }
   return result;
 }
+
 StretchyBuf<uint64_t> IntermediateResult::execute_query() {
   for (auto predicate: this->parse_query_result.predicates) {
     if (predicate.kind != PRED::JOIN)
@@ -259,4 +257,22 @@ StretchyBuf<uint64_t> IntermediateResult::execute_query() {
       break;
   }
   return this->execute_select(parse_query_result.sums);
+}
+
+size_t IntermediateResult::get_global_relation_index(size_t local_relation_index) {
+  return parse_query_result.actual_relations[local_relation_index];
+}
+
+void IntermediateResult::free_join_result(StretchyBuf<Join::JoinRow> &join_result) {
+  for (auto item: join_result)
+    item.second.free();
+  join_result.free();
+}
+
+bool IntermediateResult::Sorting::is_none() {
+  return sorted_relation_index_1 == -1;
+}
+
+void IntermediateResult::Sorting::set_none() {
+  sorted_relation_index_1 = -1;
 }

@@ -11,6 +11,21 @@
  * storage.insert_from_filenames(interpreter.begin(), interpreter.end());
  */
 
+void print_sums(StretchyBuf<uint64_t > sums) {
+  for (size_t i = 0; i < sums.len; i++) {
+    auto sum = sums[i];
+    if (sum == 0)
+      printf("%s", "NULL");
+    else
+      printf("%lu", sum);
+
+    if (i == sums.len-1)
+      printf("\n");
+    else
+      printf(" ");
+  }
+}
+
 int main(int argc, char *args[]) {
   // Αdd a file here that contains the full input. (filenames, queries).
   FILE *fp = fopen(args[1], "r");
@@ -26,14 +41,7 @@ int main(int argc, char *args[]) {
     ParseQueryResult pqr = parse_query(query);
     IntermediateResult intermediate_result(relation_storage, pqr);
     auto sums = intermediate_result.execute_query();
-    for (auto sum: sums) {
-      if (sum == 0) {
-        printf("%s ", "NULL");
-      } else {
-        printf("%ld ", sum);
-      }
-    }
-    printf("\n");
+    print_sums(sums);
   }
 
   fclose(fp);

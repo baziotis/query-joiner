@@ -148,6 +148,7 @@ void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) 
       }
     }
   }
+  stack.free();
 }
 
 void Joinable::print(int fd) {
@@ -171,6 +172,7 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   // TODO: Please remove this. Sorting should be done explicitly. Also the sort threshold
   // should be taken from the OS configuration in order to be aligned with L1D cache
   Joinable aux(std::max(lhs.size, rhs.size));
+  aux.size = aux.capacity; // Although the capacity is set size was 0.
   Joinable::MemoryContext mem_context{aux, StretchyBuf<Joinable::SortContext>()};
   lhs.sort(mem_context, 32 * 1024);
   mem_context.stack.reset();
@@ -193,7 +195,9 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
       right_row_ids = StretchyBuf<u64>{};
     }
   }
-  res.shrink_to_fit();
+  aux.clear_and_free();
+  if (res.len != 0)
+    res.shrink_to_fit();
   return res;
 }
 
