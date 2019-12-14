@@ -1,1 +1,1 @@
-g++ main.cpp parse.cpp command_interpreter.cpp tokenizer.cpp utils.cpp -o main -ggdb
+g++ *.cpp *.h -O3 -o query_joiner

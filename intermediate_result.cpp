@@ -1,6 +1,5 @@
 #include <cassert>
 #include "intermediate_result.h"
-#include "scoped_timer.h"
 
 IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
@@ -55,7 +54,6 @@ void IntermediateResult::execute_join(size_t left_relation_index,
                                       size_t left_key_index,
                                       size_t right_relation_index,
                                       size_t right_key_index) {
-  MEASURE_FUNCTION();
   assert(left_relation_index < this->max_column_n);
   assert(right_relation_index < this->max_column_n);
 
@@ -160,7 +158,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   assert(!column_is_allocated(new_relation_index));
   assert(this->row_n != 0);
   Joinable r_existing = this->to_joinable(existing_relation_index, existing_relation_key_index);
-  Joinable r_new = relation_storage[get_global_relation_index(new_relation_index)]// @TODO AddMap !
+  Joinable r_new = relation_storage[get_global_relation_index(new_relation_index)]
       .to_joinable(new_relation_key_index, get_relation_filters(new_relation_index));
   if (r_existing.size == 0 || r_new.size == 0) {
     // Exit the query execution...
@@ -238,10 +236,10 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
   for (size_t i = 0; i < this->row_n; i++) {
     auto left_rowid = this->operator[](left_relation_index)[i];
     auto left_value =
-        relation_storage[get_global_relation_index(left_relation_index)][left_key_index][left_rowid];// @TODO AddMap !
+        relation_storage[get_global_relation_index(left_relation_index)][left_key_index][left_rowid];
     auto right_rowid = this->operator[](right_relation_index)[i];
     auto right_value =
-        relation_storage[get_global_relation_index(right_relation_index)][right_key_index][right_rowid];// @TODO AddMap !
+        relation_storage[get_global_relation_index(right_relation_index)][right_key_index][right_rowid];
     if (left_value == right_value) {
       ir_rowids.push(i);
     }
@@ -278,7 +276,7 @@ StretchyBuf<uint64_t> IntermediateResult::execute_select(Array<Pair<int, int>> r
     for (auto rowid: rowids) {
       // Accumulate the specified column value into a sum.
       sum = sum
-          + this->relation_storage[get_global_relation_index(relation_index)][column_index][rowid].v; // @TODO AddMap !
+          + this->relation_storage[get_global_relation_index(relation_index)][column_index][rowid].v;
     }
     // Push the sum of each selected column into a collection.
     // The order of the sums of each column is the same as the order in the parameter collection.

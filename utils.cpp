@@ -31,7 +31,7 @@ bool string_to_u64(char *string, uint64_t *out) {
 }
 
 size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
-  int ch;
+  char ch;
   size_t total_read{0U};
   ssize_t bytes_read;
   while ((bytes_read = read(fd, &ch, sizeof(char))) > 0 && ch != EOF) {
