@@ -1,5 +1,6 @@
 #include <cassert>
 #include "intermediate_result.h"
+#include "scoped_timer.h"
 
 IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
@@ -54,6 +55,7 @@ void IntermediateResult::execute_join(size_t left_relation_index,
                                       size_t left_key_index,
                                       size_t right_relation_index,
                                       size_t right_key_index) {
+  MEASURE_FUNCTION();
   assert(left_relation_index < this->max_column_n);
   assert(right_relation_index < this->max_column_n);
 
