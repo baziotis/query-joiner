@@ -100,21 +100,25 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
   // Get the two relations to join as joinables.
-  Joinable r1 = relation_storage[get_global_relation_index(left_relation_index)]// @TODO AddMap !
+  Joinable r_left = relation_storage[get_global_relation_index(left_relation_index)]// @TODO AddMap !
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
-  Joinable r2 = relation_storage[get_global_relation_index(right_relation_index)] // @TODO AddMap !
+  Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] // @TODO AddMap !
       .to_joinable(right_key_index,
-                   left_relation_index != right_relation_index ?
-                   get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
-  if (r1.size == 0 || r2.size == 0) {
+          left_relation_index != right_relation_index ?
+          get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
+  // @TODO enable sorting optimization.
+  if (!relation_is_sorted(left_relation_index, left_key_index))
+    r_left.sort();
+  if (!relation_is_sorted(right_relation_index, right_key_index))
+    r_right.sort();
+  if (r_left.size == 0 || r_right.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
     return;
   }
   Join join;
-  auto join_result = join(r1, r2);
-  r1.clear_and_free();
-  r2.clear_and_free();
+  auto join_result = join(r_left, r_right);
+  r_left.clear_and_free(); r_right.clear_and_free();
   StretchyBuf<u64> column1;
   StretchyBuf<u64> column2;
   for (auto join_row: join_result) {
@@ -138,18 +142,22 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   assert(column_is_allocated(existing_relation_index));
   assert(!column_is_allocated(new_relation_index));
   assert(this->row_n != 0);
-  Joinable r_left = this->to_joinable(existing_relation_index, existing_relation_key_index);
-  Joinable r_right = relation_storage[get_global_relation_index(new_relation_index)]// @TODO AddMap !
+  Joinable r_existing = this->to_joinable(existing_relation_index, existing_relation_key_index);
+  Joinable r_new = relation_storage[get_global_relation_index(new_relation_index)]// @TODO AddMap !
       .to_joinable(new_relation_key_index, get_relation_filters(new_relation_index));
-  if (r_left.size == 0 || r_right.size == 0) {
+  if (r_existing.size == 0 || r_new.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
     return;
   }
   Join join;
-  auto join_result = join(r_left, r_right);
-  r_left.clear_and_free();
-  r_right.clear_and_free();
+  // @TODO enable sorting optimization.
+//  if (!relation_is_sorted(existing_relation_index, existing_relation_key_index))
+//    r_existing.sort();
+//  if (!relation_is_sorted(new_relation_index, new_relation_key_index))
+//    r_new.sort();
+  auto join_result = join(r_existing, r_new);
+  r_existing.clear_and_free(); r_new.clear_and_free();
   // Loop for the allocated existing columns.
   for (size_t j = 0; j < this->max_column_n; ++j) {
     if (!column_is_allocated(j))
@@ -274,6 +282,13 @@ void IntermediateResult::free_join_result(StretchyBuf<Join::JoinRow> &join_resul
   for (auto item: join_result)
     item.second.free();
   join_result.free();
+}
+
+bool IntermediateResult::relation_is_sorted(size_t relation_index, size_t key_index) {
+  return (relation_index == sorting.sorted_relation_index_1 &&
+    key_index == sorting.relation_1_sorting_key) ||
+    (relation_index == sorting.sorted_relation_index_2 &&
+        key_index == sorting.relation_2_sorting_key);
 }
 
 bool IntermediateResult::Sorting::is_none() {

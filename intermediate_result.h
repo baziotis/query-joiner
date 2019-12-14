@@ -111,6 +111,8 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
 
   static void free_join_result(StretchyBuf<Join::JoinRow> &join_result);
 
+  bool relation_is_sorted(size_t relation_index, size_t key_index);
+
   struct Sorting {
     bool is_none();
     void set_none();
