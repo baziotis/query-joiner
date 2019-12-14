@@ -114,7 +114,6 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   bool relation_is_sorted(size_t relation_index, size_t key_index);
 
   struct Sorting {
-    bool is_none();
     void set_none();
     int sorted_relation_index_1;
     int relation_1_sorting_key;

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(query_joiner)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "-O2")
 
 add_executable(query_joiner main.cpp array.h main.cpp common.h pair.h metaprogramming.h relation_data.h relation_data.cpp
         report_utils.cpp report_utils.h utils.h utils.cpp relation_storage.h relation_storage.cpp

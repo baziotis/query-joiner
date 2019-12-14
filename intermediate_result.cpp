@@ -65,7 +65,6 @@ void IntermediateResult::execute_join(size_t left_relation_index,
     execute_join_as_filter(
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
-    return; // Sorting state of the ir is preserved here so exit...
   } else if (!left_allocated && !right_allocated) {
     // This case should occur only once, when the intermediate result is empty.
     execute_initial_join(
@@ -84,12 +83,6 @@ void IntermediateResult::execute_join(size_t left_relation_index,
         right_relation_index, right_key_index,
         left_relation_index, left_key_index);
   }
-
-  // Update information about the sorting state of the ir. Later used as optimization.
-  this->sorting.sorted_relation_index_1 = left_relation_index;
-  this->sorting.relation_1_sorting_key = left_key_index;
-  this->sorting.sorted_relation_index_2 = right_relation_index;
-  this->sorting.relation_2_sorting_key = right_key_index;
 }
 
 static size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
@@ -108,6 +101,11 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
       .to_joinable(right_key_index,
                    left_relation_index != right_relation_index ?
                    get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
+  if (r_left.size == 0 || r_right.size == 0) {
+    // Exit the query execution...
+    this->row_n = 0;
+    return;
+  }
   if (!relation_is_sorted(left_relation_index, left_key_index)) {
     if (r_left.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -125,11 +123,6 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
     }
     sort_context.reset();
     r_right.sort({aux, sort_context}, sort_threshold);
-  }
-  if (r_left.size == 0 || r_right.size == 0) {
-    // Exit the query execution...
-    this->row_n = 0;
-    return;
   }
   Join join;
   auto join_result = join(r_left, r_right);
@@ -149,6 +142,12 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   this->operator[](right_relation_index) = column2;
   this->column_n = 2;
   this->row_n = column1.len;
+
+  // Update information about the sorting state of the ir. Later used as optimization.
+  this->sorting.sorted_relation_index_1 = left_relation_index;
+  this->sorting.relation_1_sorting_key = left_key_index;
+  this->sorting.sorted_relation_index_2 = right_relation_index;
+  this->sorting.relation_2_sorting_key = right_key_index;
 }
 
 void IntermediateResult::execute_common_join(size_t existing_relation_index,
@@ -166,8 +165,6 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     this->row_n = 0;
     return;
   }
-  Join join;
-
   if (!relation_is_sorted(existing_relation_index, existing_relation_key_index)) {
     if (r_existing.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -186,6 +183,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     sort_context.reset();
     r_new.sort({aux, sort_context}, sort_threshold);
   }
+  Join join;
   auto join_result = join(r_existing, r_new);
   r_existing.clear_and_free();
   r_new.clear_and_free();
@@ -218,6 +216,12 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   this->operator[](new_relation_index) = aux_column;
   this->column_n++;
   this->row_n = aux_column.len;
+
+  // Update information about the sorting state of the ir. Later used as optimization.
+  this->sorting.sorted_relation_index_1 = existing_relation_index;
+  this->sorting.relation_1_sorting_key = existing_relation_key_index;
+  this->sorting.sorted_relation_index_2 = new_relation_index;
+  this->sorting.relation_2_sorting_key = new_relation_key_index;
 }
 
 void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
@@ -322,10 +326,7 @@ bool IntermediateResult::relation_is_sorted(size_t relation_index, size_t key_in
           key_index == sorting.relation_2_sorting_key);
 }
 
-bool IntermediateResult::Sorting::is_none() {
-  return sorted_relation_index_1 == -1;
-}
-
 void IntermediateResult::Sorting::set_none() {
   sorted_relation_index_1 = -1;
+  sorted_relation_index_2 = -1;
 }
