@@ -3,7 +3,7 @@
 #include "relation_storage.h"
 #include "intermediate_result.h"
 
-void print_sums(StretchyBuf<uint64_t > sums) {
+void print_sums(StretchyBuf<uint64_t> sums) {
   for (size_t i = 0; i < sums.len; i++) {
     auto sum = sums[i];
     if (sum == 0)

@@ -2,6 +2,7 @@
 #include <random>
 #include "joinable.h"
 #include "report_utils.h"
+#include "scoped_timer.h"
 
 Joinable::Joinable() : Array() {}
 
@@ -94,6 +95,7 @@ static void quicksort(JoinableEntry *data, ssize_t left_index, ssize_t right_ind
 }
 
 void Joinable::sort(Joinable::MemoryContext mem_context, size_t sort_threshold) {
+  MEASURE_FUNCTION();
   Joinable copy = *this;
   Joinable aux_copy = mem_context.aux;
 
@@ -169,6 +171,7 @@ Joinable Joinable::empty() {
 }
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
+  MEASURE_FUNCTION();
   StretchyBuf<Join::JoinRow> res{};
   for (size_t i = 0U; i != lhs.size; ++i) {
     StretchyBuf<u64> right_row_ids{};
