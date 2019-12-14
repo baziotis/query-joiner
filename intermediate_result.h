@@ -5,7 +5,6 @@
 #ifndef SORT_MERGE_JOIN__INTERMEDIATE_RESULT_H_
 #define SORT_MERGE_JOIN__INTERMEDIATE_RESULT_H_
 
-#include <zconf.h>
 #include <cstdint>
 #include "joinable.h"
 #include "relation_storage.h"

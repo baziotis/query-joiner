@@ -1,6 +1,6 @@
 #include <cstdarg>
 #include <cstdio>
-#include <zconf.h>
+#include <unistd.h>
 #include "report_utils.h"
 
 #define GET_ARGS() \
