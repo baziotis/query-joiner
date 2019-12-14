@@ -63,7 +63,7 @@ struct Array {
   void clear_and_free() {
     clear();
     assert(data);
-    free(data);
+    ::free(data);
   }
 
   // Iterator section

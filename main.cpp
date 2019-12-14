@@ -3,14 +3,6 @@
 #include "relation_storage.h"
 #include "intermediate_result.h"
 
-/*
- * I'm going to write here a use case indicating how to create a RelationStorage by reading the input filenames
- * CommandInterpreter interpreter{};
- * interpreter.read_relation_filenames();
- * RelationStorage storage(interpreter.remaining_commands());
- * storage.insert_from_filenames(interpreter.begin(), interpreter.end());
- */
-
 void print_sums(StretchyBuf<uint64_t > sums) {
   for (size_t i = 0; i < sums.len; i++) {
     auto sum = sums[i];
@@ -42,8 +34,12 @@ int main(int argc, char *args[]) {
     IntermediateResult intermediate_result(relation_storage, pqr);
     auto sums = intermediate_result.execute_query();
     print_sums(sums);
+    sums.free();
+    pqr.predicates.clear_and_free();
+    pqr.sums.clear_and_free();
   }
 
+  relation_storage.free();
   fclose(fp);
   return 0;
 }

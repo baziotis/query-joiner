@@ -21,7 +21,7 @@
  * This information is made known at query-parse time.
  *(essentially the number of tables in the 'from' clause of the query).
  */
-class IntermediateResult : Array<StretchyBuf<u64>> {
+class IntermediateResult : public Array<StretchyBuf<u64>> {
  public:
   /**
    * Constructs an empty intermediate result that can hold up to

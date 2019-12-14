@@ -10,6 +10,13 @@ void RelationStorage::print_relations(uint64_t start_index, uint64_t end_index) 
     (*this)[index].print();
 }
 
+void RelationStorage::free() {
+  for (RelationData &data : *this) {
+    data.clear_and_free();
+  }
+  clear_and_free();
+}
+
 void RelationStorage::insert_from_filenames(CommandInterpreter::CommandIterator start,
                                             CommandInterpreter::CommandIterator end) {
   for (; start != end; ++start) {
@@ -21,4 +28,5 @@ void RelationStorage::insert_from_filenames(CommandInterpreter::CommandIterator 
     this->push(RelationData::from_binary_file(filename));
   }
 }
+
 

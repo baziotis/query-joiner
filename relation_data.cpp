@@ -8,6 +8,13 @@ RelationData::RelationData(uint64_t row_n, uint64_t col_n) : Array(col_n) {
   }
 }
 
+void RelationData::free() {
+  for (Array<u64> &cols : *this) {
+    cols.clear_and_free();
+  }
+  clear_and_free();
+}
+
 void RelationData::print(FILE *fp, char delimiter) {
   size_t col_n = this->size;
   size_t row_n =  (*this)[0].size;
@@ -80,3 +87,4 @@ RelationData RelationData::from_binary_file(const char *filename) {
   close(fd);
   return data;
 }
+

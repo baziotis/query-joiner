@@ -22,6 +22,8 @@ struct RelationData : public Array<Array<u64>> {
   void print(FILE *fp = stdout, char delimiter = ' ');
 
   static RelationData from_binary_file(const char *filename);
+
+  void free();
 };
 
 #endif //SORT_MERGE_JOIN__RELATION_DATA_H_

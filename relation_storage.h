@@ -16,6 +16,8 @@ struct RelationStorage : public Array<RelationData> {
    * @param end: An iterator to the end of the filename sequence
    */
   void insert_from_filenames(CommandInterpreter::CommandIterator start, CommandInterpreter::CommandIterator end);
+
+  void free();
 };
 
 #endif //SORT_MERGE_JOIN__RELATIONSTORAGE_H_
