@@ -122,11 +122,14 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
     int relation_2_sorting_key;
   } sorting;
 
+  Joinable aux;
+  StretchyBuf<Joinable::SortContext> sort_context;
   RelationStorage &relation_storage;
   ParseQueryResult &parse_query_result;
   size_t max_column_n;
   size_t column_n;
   size_t row_n;
 };
+
 
 #endif //SORT_MERGE_JOIN__INTERMEDIATE_RESULT_H_

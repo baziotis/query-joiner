@@ -3,7 +3,7 @@
 
 IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
-      row_n(0), max_column_n(rs.size) {
+      row_n(0), max_column_n(rs.size), aux{}, sort_context{} {
   this->size = rs.size;
   for (size_t i = 0; i < this->size; i++) {
     this->operator[](i).data = nullptr;
@@ -92,6 +92,8 @@ void IntermediateResult::execute_join(size_t left_relation_index,
   this->sorting.relation_2_sorting_key = right_key_index;
 }
 
+static size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
+
 void IntermediateResult::execute_initial_join(size_t left_relation_index,
                                               size_t left_key_index,
                                               size_t right_relation_index,
@@ -104,13 +106,26 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
   Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] // @TODO AddMap !
       .to_joinable(right_key_index,
-          left_relation_index != right_relation_index ?
-          get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
-  // @TODO enable sorting optimization.
-  if (!relation_is_sorted(left_relation_index, left_key_index))
-    r_left.sort();
-  if (!relation_is_sorted(right_relation_index, right_key_index))
-    r_right.sort();
+                   left_relation_index != right_relation_index ?
+                   get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
+  if (!relation_is_sorted(left_relation_index, left_key_index)) {
+    if (r_left.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_left.capacity);
+      aux.size = r_left.capacity;
+    }
+    sort_context.reset();
+    r_left.sort({aux, sort_context}, sort_threshold);
+  }
+  if (!relation_is_sorted(right_relation_index, right_key_index)) {
+    if (r_right.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_right.capacity);
+      aux.size = r_right.capacity;
+    }
+    sort_context.reset();
+    r_right.sort({aux, sort_context}, sort_threshold);
+  }
   if (r_left.size == 0 || r_right.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
@@ -118,7 +133,8 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   }
   Join join;
   auto join_result = join(r_left, r_right);
-  r_left.clear_and_free(); r_right.clear_and_free();
+  r_left.clear_and_free();
+  r_right.clear_and_free();
   StretchyBuf<u64> column1;
   StretchyBuf<u64> column2;
   for (auto join_row: join_result) {
@@ -151,13 +167,28 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     return;
   }
   Join join;
-  // @TODO enable sorting optimization.
-//  if (!relation_is_sorted(existing_relation_index, existing_relation_key_index))
-//    r_existing.sort();
-//  if (!relation_is_sorted(new_relation_index, new_relation_key_index))
-//    r_new.sort();
+
+  if (!relation_is_sorted(existing_relation_index, existing_relation_key_index)) {
+    if (r_existing.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_existing.capacity);
+      aux.size = r_existing.capacity;
+    }
+    sort_context.reset();
+    r_existing.sort({aux, sort_context}, sort_threshold);
+  }
+  if (!relation_is_sorted(new_relation_index, new_relation_key_index)) {
+    if (r_new.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_new.capacity);
+      aux.size = r_new.capacity;
+    }
+    sort_context.reset();
+    r_new.sort({aux, sort_context}, sort_threshold);
+  }
   auto join_result = join(r_existing, r_new);
-  r_existing.clear_and_free(); r_new.clear_and_free();
+  r_existing.clear_and_free();
+  r_new.clear_and_free();
   // Loop for the allocated existing columns.
   for (size_t j = 0; j < this->max_column_n; ++j) {
     if (!column_is_allocated(j))
@@ -286,9 +317,9 @@ void IntermediateResult::free_join_result(StretchyBuf<Join::JoinRow> &join_resul
 
 bool IntermediateResult::relation_is_sorted(size_t relation_index, size_t key_index) {
   return (relation_index == sorting.sorted_relation_index_1 &&
-    key_index == sorting.relation_1_sorting_key) ||
-    (relation_index == sorting.sorted_relation_index_2 &&
-        key_index == sorting.relation_2_sorting_key);
+      key_index == sorting.relation_1_sorting_key) ||
+      (relation_index == sorting.sorted_relation_index_2 &&
+          key_index == sorting.relation_2_sorting_key);
 }
 
 bool IntermediateResult::Sorting::is_none() {
