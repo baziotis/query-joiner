@@ -8,24 +8,26 @@ static constexpr size_t DONE_LEN = 4;
 CommandInterpreter::CommandInterpreter(int fd) : fd{fd}, command_buffer(100) {}
 CommandInterpreter::CommandInterpreter(FILE *fp) : CommandInterpreter(fp->_fileno) {}
 
-void CommandInterpreter::read_relation_filenames() {
+bool CommandInterpreter::read_relation_filenames() {
   command_buffer.reset();
   bool done_encountered{false};
   while (!done_encountered) {
-    size_t bytes_read = read_line_from_stream(command_buffer, this->fd);
+    ssize_t bytes_read = read_line_from_stream(command_buffer, this->fd);
     // If we read at least DONE_LEN + 1 characters (+1 for newline)
     // then check if the last DONE_LEN characters before newline are equal to string "done"
+    if (bytes_read == -1) return false;
     done_encountered = bytes_read == DONE_LEN + 1 &&
         !strncasecmp(command_buffer.data + command_buffer.len - bytes_read, DONE, DONE_LEN);
   }
   command_buffer.len -= DONE_LEN + 1;
 }
 
-void CommandInterpreter::read_query_batch() {
+bool CommandInterpreter::read_query_batch() {
   command_buffer.reset();
   bool f_encountered{false};
   while (!f_encountered) {
-    size_t bytes_read = read_line_from_stream(command_buffer, this->fd);
+    ssize_t bytes_read = read_line_from_stream(command_buffer, this->fd);
+    if (bytes_read == -1) return false;
     // Check if we read exactly 2 characters (+1 for newline)
     // and then check if read 'F' character which indicates the end of the query batch
     f_encountered = bytes_read == 2 && command_buffer[command_buffer.len - 2] == 'F';
