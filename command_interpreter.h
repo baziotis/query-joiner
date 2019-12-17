@@ -53,15 +53,17 @@ struct CommandInterpreter {
    * Read the next group of filenames from the stream provided to the interpreter
    * until the string DONE is encountered. These filenames get stored in
    * the internal buffer of the interpreter which can be accessed using the command iterator
+   * @return True if relation_filenames read (read Done), False if EOF encountered
    */
-  void read_relation_filenames();
+  bool read_relation_filenames();
 
   /**
    * Read the next group of queries from the stream provided to the interpreter
    * until the character 'F' is encountered. These queries get stored in
    * the internal buffer of the interpreter. These batches can be accessed using the command iterator
+   * @return True if query batch read (read 'F'), False if EOF encountered
    */
-  void read_query_batch();
+  bool read_query_batch();
 
   /**
    * @return An iterator which provides commands lazily

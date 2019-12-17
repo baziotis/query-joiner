@@ -34,7 +34,9 @@ size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
   char ch;
   size_t total_read{0U};
   ssize_t bytes_read;
-  while ((bytes_read = read(fd, &ch, sizeof(char))) > 0 && ch != EOF) {
+  while (true) {
+    bytes_read = read(fd, &ch, sizeof(char));
+    if (bytes_read <= 0) break;
     total_read += bytes_read;
     buffer.push((char) ch);
     if (ch == '\n') break;
@@ -42,14 +44,17 @@ size_t read_line_from_stream(StretchyBuf<char> &buffer, int fd) {
   // This is an edge case where the file descriptor is coming from an actual file
   // and we encountered the end of file but the last line hasn't a newline character
   // at it so we add it explicitly for uniformity reasons
-  if (bytes_read == 0 && buffer[buffer.len - 1] != '\n') {
-    buffer.push('\n');
-    ++total_read;
+  if (bytes_read <= 0) {
+    return -1;
+  } else {
+    if (buffer[buffer.len - 1] != '\n') {
+      buffer.push('\n');
+      ++total_read;
+    }
   }
-  return bytes_read != -1 ? total_read : -1;
+  return total_read;
 }
 
 bool file_exists(const char *filename) {
   return access(filename, F_OK) != -1;
 }
-
