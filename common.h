@@ -36,7 +36,7 @@ struct u64 {
   }
 
   template<typename T, enable_if_integral_t<T> = true>
-  u64 &operator=(T value) {
+  __always_inline u64 &operator=(T value) {
     v = value;
     return *this;
   }
@@ -44,36 +44,36 @@ struct u64 {
   template<typename T, enable_if_integral_t<T> = true>
   operator T() { return v; }
 
-  u8 byte(size_t i) const {
+  __always_inline u8 byte(size_t i) const {
     assert(i < 8);
     return (v >> ((7U - i) * 8U)) & 0xFFU;
   }
 
-  bool operator==(const u64 rhs) const {
+  __always_inline bool operator==(const u64 rhs) const {
     return v == rhs.v;
   }
 
-  bool operator!=(const u64 rhs) const {
+  __always_inline bool operator!=(const u64 rhs) const {
     return v != rhs.v;
   }
 
-  bool operator<(const u64 rhs) const {
+  __always_inline bool operator<(const u64 rhs) const {
     return v < rhs.v;
   }
 
-  bool operator>(const u64 rhs) const {
+  __always_inline bool operator>(const u64 rhs) const {
     return v > rhs.v;
   }
 
-  bool operator<=(const u64 rhs) const {
+  __always_inline bool operator<=(const u64 rhs) const {
     return v <= rhs.v;
   }
 
-  bool operator>=(const u64 rhs) const {
+  __always_inline bool operator>=(const u64 rhs) const {
     return v >= rhs.v;
   }
 
-  u64 operator+(const u64 rhs) const {
+  __always_inline u64 operator+(const u64 rhs) const {
     return v + v;
   }
 };

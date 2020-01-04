@@ -66,7 +66,7 @@ static ssize_t partition(JoinableEntry *data, ssize_t left_index, ssize_t right_
   JoinableEntry pivot = data[right_index];
   ssize_t i = left_index - 1;
   for (ssize_t j = left_index; j != right_index; ++j) {
-    if (data[j] <= pivot) {
+  if (data[j] <= pivot) {
       ++i;
       std::swap(data[i], data[j]);
     }

@@ -29,12 +29,31 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    * @param max_column_n The maximum number of relations participating.
    */
   explicit IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr);
+
   /**
    * Deallocates memory used by the row-id columns if necessery.
    */
-  ~IntermediateResult();
+  void free();
 
+  /**
+   * @TODO this must be removed at some point.
+   * execution of a query should be done by traversing a join tree.
+   */
   StretchyBuf<uint64_t> execute_query();
+
+  /**
+   * Joins this intermediate result to another on the specified relation-column pairs.
+   * The memory for the parameter ir is deallocated and it is no longer used.
+   * @param ir Some arbitrary ir.
+   * @param this_relation_index
+   * @param this_key_index
+   * @param right_relation_index
+   * @param right_key_index
+   * @return The existing ir updated.
+   */
+  IntermediateResult join(IntermediateResult &ir,
+                          size_t this_relation_index, size_t this_key_index,
+                          size_t right_relation_index, size_t right_key_index);
 
  private:
   bool is_empty();

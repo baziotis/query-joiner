@@ -37,6 +37,7 @@ int main(int argc, char *args[]) {
       sums.free();
       pqr.predicates.clear_and_free();
       pqr.sums.clear_and_free();
+      intermediate_result.free();
     }
   }
 

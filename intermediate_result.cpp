@@ -11,12 +11,6 @@ IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pq
   this->sorting.set_none();
 }
 
-IntermediateResult::~IntermediateResult() {
-  for (auto col: *this) {
-    col.free();
-  }
-  this->clear_and_free();
-}
 
 size_t IntermediateResult::column_count() {
   return this->column_n;
@@ -38,9 +32,9 @@ bool IntermediateResult::is_empty() {
 Joinable IntermediateResult::to_joinable(size_t relation_index, size_t key_index) {
   assert(column_is_allocated(relation_index));
   // Oddly this is the number of columns of relation at "relation_index".
-  assert(key_index < relation_storage[get_global_relation_index(relation_index)].size);// @TODO AddMap !
+  assert(key_index < relation_storage[get_global_relation_index(relation_index)].size);
   assert(this->row_n != 0);
-  RelationData target_relation = relation_storage[get_global_relation_index(relation_index)];// @TODO AddMap !
+  RelationData target_relation = relation_storage[get_global_relation_index(relation_index)];
   Joinable joinable(this->row_n);
   for (size_t i = 0; i < this->row_n; ++i) {
     u64 rowid = this->operator[](relation_index)[i];
@@ -95,9 +89,9 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
   // Get the two relations to join as joinables.
-  Joinable r_left = relation_storage[get_global_relation_index(left_relation_index)]// @TODO AddMap !
+  Joinable r_left = relation_storage[get_global_relation_index(left_relation_index)]
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
-  Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] // @TODO AddMap !
+  Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] 
       .to_joinable(right_key_index,
                    left_relation_index != right_relation_index ?
                    get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
@@ -146,6 +140,89 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Update information about the sorting state of the ir. Later used as optimization.
   this->sorting.sorted_relation_index_1 = left_relation_index;
   this->sorting.relation_1_sorting_key = left_key_index;
+  this->sorting.sorted_relation_index_2 = right_relation_index;
+  this->sorting.relation_2_sorting_key = right_key_index;
+}
+
+IntermediateResult IntermediateResult::join(IntermediateResult &ir,
+                                            size_t this_relation_index,
+                                            size_t this_key_index,
+                                            size_t right_relation_index,
+                                            size_t right_key_index) {
+  assert(column_is_allocated(this_relation_index));
+  assert(this->row_n != 0);
+  Joinable r_this = this->to_joinable(this_relation_index, this_key_index);
+  Joinable r_right = ir.to_joinable(right_relation_index, right_key_index);
+  if (r_this.size == 0 || r_right.size == 0) {
+    // Exit the query execution...
+    this->row_n = 0;
+    ir.clear_and_free();
+    return *this;
+  }
+  if (!relation_is_sorted(this_relation_index, this_key_index)) {
+    if (r_this.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_this.capacity);
+      aux.size = r_this.capacity;
+    }
+    sort_context.reset();
+    r_this.sort({aux, sort_context}, sort_threshold);
+  }
+  if (!ir.relation_is_sorted(right_relation_index, right_key_index)) {
+    if (r_right.capacity > aux.capacity) {
+      aux.clear_and_free();
+      aux.reserve(r_right.capacity);
+      aux.size = r_right.capacity;
+    }
+    sort_context.reset();
+    r_right.sort({aux, sort_context}, sort_threshold);
+  }
+
+  Join join;
+  auto join_result = join(r_this, r_right);
+  r_this.clear_and_free();
+  r_right.clear_and_free();
+  // Loop for the allocated existing columns.
+  for (size_t j = 0; j < this->max_column_n; ++j) {
+    if (!column_is_allocated(j))
+      continue;
+    StretchyBuf<u64> aux_column(join_result.len);
+    auto current_column = this->operator[](j);
+    for (auto join_row: join_result) {
+      auto rowid_1 = join_row.first;
+      size_t len = join_row.second.len;
+      while (len--) { // For each item of the second list.
+        aux_column.push(current_column[rowid_1]);
+      }
+    }
+    current_column.free();
+    this->operator[](j) = aux_column;
+  }
+  // Loop for the new columns that will be added from param ir.
+  for (size_t j = 0; j < this->max_column_n; ++j) {
+    if (!ir.column_is_allocated(j))
+      continue;
+    StretchyBuf<u64> aux_column(join_result.len);
+    auto current_column = ir[j];
+    for (auto join_row: join_result) {
+      auto rowid_1 = join_row.first;
+      for (auto rowid_2: join_row.second) {
+        aux_column.push(current_column[rowid_2]);
+      }
+    }
+    this->operator[](j) = aux_column;
+  }
+
+  this->row_n = join_result.len;
+  free_join_result(join_result);
+  this->column_n += ir.column_n;
+
+  // Dont forget to delete the param ir.
+  ir.free();
+
+  // Update information about the sorting state of the ir. Later used as optimization.
+  this->sorting.sorted_relation_index_1 = this_relation_index;
+  this->sorting.relation_1_sorting_key = this_key_index;
   this->sorting.sorted_relation_index_2 = right_relation_index;
   this->sorting.relation_2_sorting_key = right_key_index;
 }
@@ -324,6 +401,13 @@ bool IntermediateResult::relation_is_sorted(size_t relation_index, size_t key_in
       key_index == sorting.relation_1_sorting_key) ||
       (relation_index == sorting.sorted_relation_index_2 &&
           key_index == sorting.relation_2_sorting_key);
+}
+
+void IntermediateResult::free() {
+  for (auto col: *this) {
+    col.free();
+  }
+  this->clear_and_free();
 }
 
 void IntermediateResult::Sorting::set_none() {
