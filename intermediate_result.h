@@ -51,11 +51,10 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    * @param right_key_index
    * @return The existing ir updated.
    */
-  IntermediateResult join(IntermediateResult &ir,
-                          size_t this_relation_index, size_t this_key_index,
-                          size_t right_relation_index, size_t right_key_index);
+  IntermediateResult join_with_ir(IntermediateResult &ir,
+                                  size_t this_relation_index, size_t this_key_index,
+                                  size_t right_relation_index, size_t right_key_index);
 
- private:
   bool is_empty();
   size_t column_count();
   size_t row_count();
@@ -69,16 +68,15 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   bool column_is_allocated(size_t relation_index);
 
   /**
-   * Creates a joinable object that contains <key, rowid> pairs.
-   * The keys are fetched from relation_storage based on "relation_index"
-   * and "key_index". The row-ids are evaluated as the index of each tuple
-   * of the intermediate result. All filtering associated with this relation
-   * is performed at this step.
-   * @param relation_index Global index of the relation.
-   * @param key_index Index of the key to use.
-   * @return A Joinable object.
+   * Executes the select clause of the query and performs an aggregate sum on the join results.
+   * All relation indices passed in the parameter should be present in the ir.
+   *
+   * @param relation_indices An ordered collection of pairs of <relation_index, column_index>
+   * as they appear in the select clause.
+   * @return An ordered collection of the aggregate sums for the join result.
+   * The size of the collection should be equal to the parameter collection.
    */
-  Joinable to_joinable(size_t relation_index, size_t key_index);
+  StretchyBuf<uint64_t> execute_select(Array<Pair<int, int>> relation_indices);
 
   /**
    * Accumulates relations to the intermediate result.
@@ -96,16 +94,23 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
 
+ private:
+
+
+
   /**
-   * Executes the select clause of the query and performs an aggregate sum on the join results.
-   * All relation indices passed in the parameter should be present in the ir.
-   *
-   * @param relation_indices An ordered collection of pairs of <relation_index, column_index>
-   * as they appear in the select clause.
-   * @return An ordered collection of the aggregate sums for the join result.
-   * The size of the collection should be equal to the parameter collection.
+   * Creates a joinable object that contains <key, rowid> pairs.
+   * The keys are fetched from relation_storage based on "relation_index"
+   * and "key_index". The row-ids are evaluated as the index of each tuple
+   * of the intermediate result. All filtering associated with this relation
+   * is performed at this step.
+   * @param relation_index Global index of the relation.
+   * @param key_index Index of the key to use.
+   * @return A Joinable object.
    */
-  StretchyBuf<uint64_t> execute_select(Array<Pair<int, int>> relation_indices);
+  Joinable to_joinable(size_t relation_index, size_t key_index);
+
+
 
   void execute_join_as_filter(
       size_t left_relation_index, size_t left_key_index,
@@ -141,8 +146,8 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
 
   Joinable aux;
   StretchyBuf<Joinable::SortContext> sort_context;
-  RelationStorage &relation_storage;
-  ParseQueryResult &parse_query_result;
+  RelationStorage relation_storage;
+  ParseQueryResult parse_query_result;
   size_t max_column_n;
   size_t column_n;
   size_t row_n;
