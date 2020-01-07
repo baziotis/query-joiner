@@ -9,6 +9,8 @@ add_executable(query_joiner main.cpp array.h main.cpp common.h pair.h metaprogra
         joinable.cpp joinable.h tokenizer.h tokenizer.cpp command_interpreter.h command_interpreter.cpp parse.cpp parse.h
         intermediate_result.h intermediate_result.cpp task_scheduler.cpp task_scheduler.h queue.h)
 
+target_link_libraries(query_joiner pthread)
+
 add_executable(test_create_relation_from_file tests/test_create_relation_from_file.cpp relation_data.cpp relation_data.h
         file_manager.cpp file_manager.h joinable.h joinable.cpp report_utils.h report_utils.cpp)
 

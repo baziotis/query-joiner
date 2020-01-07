@@ -15,7 +15,17 @@ template<typename F, typename... Args>
 struct Task {
   using ReturnType = typename std::result_of<F(Args...)>::type;
 
-  Task(F callable, Args... args) : future{Future<ReturnType>()} {
+  /*
+   * Some magic here so we can conditionally enable the right constructor
+   * based on the return type of the signature provided
+   */
+  template<typename _F = F,
+      typename... _Args,
+      typename std::enable_if<
+          !std::is_void<typename std::result_of<_F(_Args...)>::type>::value, bool>::type = true>
+  Task(_F callable, _Args... args) : future{Future<ReturnType>()} {
+    static_assert(std::is_same<F(Args...), _F(_Args...)>::value,
+                  "The Types specified for the Task object must match the types specified to the constructor");
     /*
      * We wrap the call inside a lambda so we save both the callable object
      * and the argument pack of the callable.
@@ -24,6 +34,26 @@ struct Task {
     call_wrapper = [this, callable, args...]() {
       ReturnType res = callable(args...);
       future.set_value(res);
+    };
+  }
+
+  /*
+   * Same as above. We do this so we have different code if the return type is void.
+   * With C++17 it would just be a "if constexpr" statement...
+   * For both constructors we statically check if the signature of the Task type and the signature
+   * passed to the constructor match, because we have deployed an extra layer of templates here.
+   */
+  template<typename _F = F,
+      typename... _Args,
+      typename std::enable_if<
+          std::is_void<typename std::result_of<_F(_Args...)>::type>::value, bool>::type = true>
+  Task(_F callable, _Args... args): future{Future<ReturnType>()} {
+    static_assert(std::is_same<F(Args...), _F(_Args...)>::value,
+                  "The Types specified for the Task object must match the types specified to the constructor");
+
+    call_wrapper = [this, callable, args...]() {
+      callable(args...);
+      future.notify();
     };
   }
 
@@ -45,6 +75,47 @@ template<typename F, typename... Args>
 Task<F, Args...> *allocate_task(F callable, Args... args) {
   return new Task<F, Args...>{callable, args...};
 }
+
+// Template specialization for void return type
+template<>
+struct Future<void> {
+  // We declare the generic Task type as friend so it can access private methods of the Future
+  template<typename F, typename... Args>
+  friend
+  struct Task;
+
+  struct FutureState {
+    FutureState() : ready{false} {
+      pthread_mutex_init(&mutex, NULL);
+      pthread_cond_init(&ready_cond, NULL);
+    }
+
+    pthread_mutex_t mutex;
+    pthread_cond_t ready_cond;
+    bool ready;
+  };
+
+  Future() : state{new FutureState()} {}
+
+  void wait() {
+    pthread_mutex_lock(&state->mutex);
+    if (!state->ready) {
+      pthread_cond_wait(&state->ready_cond, &state->mutex);
+    }
+    pthread_mutex_unlock(&state->mutex);
+  }
+
+ private:
+
+  void notify() {
+    pthread_mutex_lock(&state->mutex);
+    state->ready = true;
+    pthread_cond_broadcast(&state->ready_cond);
+    pthread_mutex_unlock(&state->mutex);
+  }
+
+  FutureState *state;
+};
 
 /**
  * A type that represents the return value of the callable
@@ -131,7 +202,7 @@ struct ThreadState {
 
 struct TaskScheduler {
   TaskScheduler() = delete;
-  TaskScheduler(size_t nr_threads);
+  TaskScheduler(size_t nr_threads, size_t queue_size = 10U);
 
   void start();
 

@@ -10,17 +10,17 @@ static void *worker(void *arg) {
     }
     if (state->stop && state->task_queue.emtpy()) {
       pthread_mutex_unlock(&state->queue_mutex);
-      return NULL;
+      break;
     }
     std::function<void()> &task = state->task_queue.pop();
     pthread_mutex_unlock(&state->queue_mutex);
     task();
   }
-  return NULL;
+  pthread_exit(NULL);
 }
 
-TaskScheduler::TaskScheduler(size_t nr_threads)
-    : nr_threads{nr_threads}, threads{new pthread_t[nr_threads]}, state{new ThreadState(nr_threads)} {}
+TaskScheduler::TaskScheduler(size_t nr_threads, size_t queue_size)
+    : nr_threads{nr_threads}, threads{new pthread_t[nr_threads]}, state{new ThreadState(queue_size)} {}
 
 void TaskScheduler::start() {
   for (size_t i = 0U; i != nr_threads; ++i) {

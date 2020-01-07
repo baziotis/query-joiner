@@ -16,8 +16,12 @@ int sum_range(int from, int to) {
   return sum;
 }
 
+void print_msg(const char *msg) {
+  report("Message = %s", msg);
+}
+
 int main() {
-  TaskScheduler scheduler{5};
+  TaskScheduler scheduler{3};
   scheduler.start();
   auto &f1 = scheduler.add_task(sum, 10, 20);
   auto &f2 = scheduler.add_task(sum_range, 1, 5);
@@ -25,8 +29,11 @@ int main() {
     report("Lambda: Value = %d", x);
     return x + 1;
   }, 100);
+  auto &f4 = scheduler.add_task(print_msg, "Hello World");
   report("From f1 got %d", f1.get_value());
   report("From f2 got %d", f2.get_value());
   report("From f3 got %d", f3.get_value());
+  f4.wait();
+  report("F4 finished");
   return 0;
 }
