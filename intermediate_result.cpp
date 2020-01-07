@@ -65,13 +65,13 @@ void IntermediateResult::execute_join(size_t left_relation_index,
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
   } else if (left_allocated) {
-    // This is the common case where one of the join relations exist in the ir
+    // This is the common case where one of the join_with_ir relations exist in the ir
     // and the other one is new...
     execute_common_join(
         left_relation_index, left_key_index,
         right_relation_index, right_key_index);
   } else {
-    // This is the common case where one of the join relations exist in the ir
+    // This is the common case where one of the join_with_ir relations exist in the ir
     // and the other one is new...
     execute_common_join(
         right_relation_index, right_key_index,
@@ -85,10 +85,10 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
                                               size_t left_key_index,
                                               size_t right_relation_index,
                                               size_t right_key_index) {
-  // Because this is the initial join, make sure the ir is empty.
+  // Because this is the initial join_with_ir, make sure the ir is empty.
   // Otherwise the state of the ir is not valid.
   assert(this->is_empty());
-  // Get the two relations to join as joinables.
+  // Get the two relations to join_with_ir as joinables.
   Joinable r_left = relation_storage[get_global_relation_index(left_relation_index)]
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
   Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] 
@@ -144,11 +144,11 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   this->sorting.relation_2_sorting_key = right_key_index;
 }
 
-IntermediateResult IntermediateResult::join(IntermediateResult &ir,
-                                            size_t this_relation_index,
-                                            size_t this_key_index,
-                                            size_t right_relation_index,
-                                            size_t right_key_index) {
+IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
+                                                    size_t this_relation_index,
+                                                    size_t this_key_index,
+                                                    size_t right_relation_index,
+                                                    size_t right_key_index) {
   assert(column_is_allocated(this_relation_index));
   assert(this->row_n != 0);
   Joinable r_this = this->to_joinable(this_relation_index, this_key_index);
