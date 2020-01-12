@@ -76,6 +76,22 @@ Task<F, Args...> *allocate_task(F callable, Args... args) {
   return new Task<F, Args...>{callable, args...};
 }
 
+struct FutureStateBase {
+  FutureStateBase() : ready{false} {
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&ready_cond, NULL);
+  }
+
+  void free() {
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&ready_cond);
+  }
+
+  pthread_mutex_t mutex;
+  pthread_cond_t ready_cond;
+  bool ready;
+};
+
 // Template specialization for void return type
 template<>
 struct Future<void> {
@@ -84,18 +100,16 @@ struct Future<void> {
   friend
   struct Task;
 
-  struct FutureState {
-    FutureState() : ready{false} {
-      pthread_mutex_init(&mutex, NULL);
-      pthread_cond_init(&ready_cond, NULL);
-    }
-
-    pthread_mutex_t mutex;
-    pthread_cond_t ready_cond;
-    bool ready;
+  struct FutureState : public FutureStateBase {
+    FutureState() : FutureStateBase() {}
   };
 
   Future() : state{new FutureState()} {}
+
+  void free() {
+    state->free();
+    delete state;
+  }
 
   void wait() {
     pthread_mutex_lock(&state->mutex);
@@ -133,19 +147,18 @@ struct Future {
   /**
    * A type that will hold the shared state of the Future object
    */
-  struct FutureState {
-    FutureState() : ready{false} {
-      pthread_mutex_init(&mutex, NULL);
-      pthread_cond_init(&ready_cond, NULL);
-    }
+  struct FutureState : public FutureStateBase {
+    FutureState() : FutureStateBase() {}
 
-    pthread_mutex_t mutex;
-    pthread_cond_t ready_cond;
     R value;
-    bool ready;
   };
 
   Future() : state{new FutureState()} {}
+
+  void free() {
+    state->free();
+    delete state;
+  }
 
   /**
    * It retrieves the value from the Future object.
@@ -205,6 +218,8 @@ struct TaskScheduler {
   TaskScheduler(size_t nr_threads, size_t queue_size = 10U);
 
   void start();
+
+  void wait_remaining_and_stop();
 
   /**
    * Add a task for execution to the task queue

@@ -35,5 +35,10 @@ int main() {
   report("From f3 got %d", f3.get_value());
   f4.wait();
   report("F4 finished");
+  f1.free();
+  f2.free();
+  f3.free();
+  f4.free();
+  scheduler.wait_remaining_and_stop();
   return 0;
 }
