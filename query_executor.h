@@ -2,8 +2,8 @@
 // Created by aris on 7/1/20.
 //
 
-#ifndef QUERY_JOINER__QUERYEXECUTOR_H_
-#define QUERY_JOINER__QUERYEXECUTOR_H_
+#ifndef QUERY_JOINER__QUERY_EXECUTOR_H_
+#define QUERY_JOINER__QUERY_EXECUTOR_H_
 
 #include "stretchy_buf.h"
 #include "array.h"
@@ -44,4 +44,4 @@ class QueryExecutor {
   void intermediate_results_remove_at(size_t i);
 };
 
-#endif //QUERY_JOINER__QUERYEXECUTOR_H_
+#endif //QUERY_JOINER__QUERY_EXECUTOR_H_

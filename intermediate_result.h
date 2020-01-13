@@ -9,6 +9,7 @@
 #include "joinable.h"
 #include "relation_storage.h"
 #include "parse.h"
+#include "task_scheduler.h"
 
 /**
  * Represents the intermediate result of a query predicate execution.
@@ -93,6 +94,15 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   void execute_join(
       size_t left_relation_index, size_t left_key_index,
       size_t right_relation_index, size_t right_key_index);
+
+  void execute_join(const Predicate &predicate);
+
+  static void execute_join_static(IntermediateResult *ir, const Predicate &predicate);
+
+  /**
+   * This Future object represents the return value of method addtask in task scheduler.
+   */
+  Future<void> previous_join;
 
  private:
 

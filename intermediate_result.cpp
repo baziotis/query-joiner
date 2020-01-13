@@ -1,6 +1,8 @@
 #include <cassert>
 #include "intermediate_result.h"
 
+extern TaskScheduler scheduler;
+
 IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
       row_n(0), max_column_n(rs.size), aux{}, sort_context{} {
@@ -150,7 +152,11 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
                                                     size_t right_relation_index,
                                                     size_t right_key_index) {
   assert(column_is_allocated(this_relation_index));
-  assert(this->row_n != 0);
+  if (this->row_n == 0 || ir.row_n == 0) {
+    ir.clear_and_free();
+    this->column_n += ir.column_n;
+    return *this;
+  }
   Joinable r_this = this->to_joinable(this_relation_index, this_key_index);
   Joinable r_right = ir.to_joinable(right_relation_index, right_key_index);
   if (r_this.size == 0 || r_right.size == 0) {
@@ -233,7 +239,10 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
                                              size_t new_relation_key_index) {
   assert(column_is_allocated(existing_relation_index));
   assert(!column_is_allocated(new_relation_index));
-  assert(this->row_n != 0);
+  if (this->row_n == 0) {
+    column_n++;
+    return;
+  }
   Joinable r_existing = this->to_joinable(existing_relation_index, existing_relation_key_index);
   Joinable r_new = relation_storage[get_global_relation_index(new_relation_index)]
       .to_joinable(new_relation_key_index, get_relation_filters(new_relation_index));
@@ -307,7 +316,8 @@ void IntermediateResult::execute_join_as_filter(size_t left_relation_index,
                                                 size_t right_key_index) {
   assert(column_is_allocated(left_relation_index));
   assert(column_is_allocated(right_relation_index));
-  assert(this->row_n != 0);
+  if (this->row_n == 0)
+    return;
   // Find the row_ids of the ir that match the filter.
   StretchyBuf<size_t> ir_rowids;
   for (size_t i = 0; i < this->row_n; i++) {
@@ -378,8 +388,7 @@ StretchyBuf<uint64_t> IntermediateResult::execute_query() {
   for (auto predicate: this->parse_query_result.predicates) {
     if (predicate.kind != PRED::JOIN)
       continue;
-    this->execute_join(predicate.lhs.first, predicate.lhs.second,
-                       predicate.rhs.first, predicate.rhs.second);
+    execute_join(predicate);
     if (this->row_n == 0)
       break;
   }
@@ -408,6 +417,19 @@ void IntermediateResult::free() {
     col.free();
   }
   this->clear_and_free();
+}
+
+void IntermediateResult::execute_join(const Predicate &predicate) {
+  if (column_n != 0)
+    previous_join.wait();
+  previous_join = scheduler.add_task(
+      execute_join_static, this, predicate
+      );
+}
+
+void IntermediateResult::execute_join_static(IntermediateResult *ir, const Predicate &predicate) {
+  ir->execute_join(predicate.lhs.first, predicate.lhs.second,
+      predicate.rhs.first, predicate.rhs.second);
 }
 
 void IntermediateResult::Sorting::set_none() {
