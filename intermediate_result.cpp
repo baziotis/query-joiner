@@ -13,7 +13,6 @@ IntermediateResult::IntermediateResult(RelationStorage &rs, const ParseQueryResu
   this->sorting.set_none();
 }
 
-
 size_t IntermediateResult::column_count() {
   return this->column_n;
 }
@@ -83,6 +82,17 @@ void IntermediateResult::execute_join(size_t left_relation_index,
 
 static size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
 
+static void noop() {}
+
+static void sort_wrapper(Joinable *joinable, size_t threshold) {
+  Joinable aux{joinable->size};
+  aux.size = joinable->size;
+  StretchyBuf<Joinable::SortContext> context_stack{};
+  joinable->sort({aux, context_stack}, threshold);
+  aux.clear_and_free();
+  context_stack.free();
+}
+
 void IntermediateResult::execute_initial_join(size_t left_relation_index,
                                               size_t left_key_index,
                                               size_t right_relation_index,
@@ -93,7 +103,7 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   // Get the two relations to join_with_ir as joinables.
   Joinable r_left = relation_storage[get_global_relation_index(left_relation_index)]
       .to_joinable(left_key_index, get_relation_filters(left_relation_index));
-  Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)] 
+  Joinable r_right = relation_storage[get_global_relation_index(right_relation_index)]
       .to_joinable(right_key_index,
                    left_relation_index != right_relation_index ?
                    get_relation_filters(right_relation_index) : StretchyBuf<Predicate>());
@@ -104,6 +114,7 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
     this->operator[](right_relation_index) = StretchyBuf<u64>(0);
     return;
   }
+  Future<void> *left_future;
   if (!relation_is_sorted(left_relation_index, left_key_index)) {
     if (r_left.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -111,8 +122,12 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
       aux.size = r_left.capacity;
     }
     sort_context.reset();
-    r_left.sort({aux, sort_context}, sort_threshold);
+    left_future = &scheduler.add_task(sort_wrapper, &r_left, sort_threshold);
+//    r_left.sort({aux, sort_context}, sort_threshold);
+  } else {
+    left_future = &scheduler.add_task(noop);
   }
+  Future<void> *right_future;
   if (!relation_is_sorted(right_relation_index, right_key_index)) {
     if (r_right.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -120,8 +135,16 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
       aux.size = r_right.capacity;
     }
     sort_context.reset();
-    r_right.sort({aux, sort_context}, sort_threshold);
+    right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
+//    r_right.sort({aux, sort_context}, sort_threshold);
+  } else {
+    right_future = &scheduler.add_task(noop);
   }
+  left_future->wait();
+  right_future->wait();
+  left_future->free();
+  right_future->free();
+
   Join join;
   auto join_result = join(r_left, r_right);
   r_left.clear_and_free();
@@ -171,6 +194,7 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
     ir.clear_and_free();
     return *this;
   }
+  Future<void> *left_future;
   if (!relation_is_sorted(this_relation_index, this_key_index)) {
     if (r_this.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -178,8 +202,13 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
       aux.size = r_this.capacity;
     }
     sort_context.reset();
-    r_this.sort({aux, sort_context}, sort_threshold);
+    left_future = &scheduler.add_task(sort_wrapper, &r_this, sort_threshold);
+//    r_this.sort({aux, sort_context}, sort_threshold);
+  } else {
+    left_future = &scheduler.add_task(noop);
   }
+
+  Future<void> *right_future;
   if (!ir.relation_is_sorted(right_relation_index, right_key_index)) {
     if (r_right.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -187,8 +216,15 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
       aux.size = r_right.capacity;
     }
     sort_context.reset();
-    r_right.sort({aux, sort_context}, sort_threshold);
+    right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
+//    r_right.sort({aux, sort_context}, sort_threshold);
+  } else {
+    right_future = &scheduler.add_task(noop);
   }
+  left_future->wait();
+  right_future->wait();
+  left_future->free();
+  right_future->free();
 
   Join join;
   auto join_result = join(r_this, r_right);
@@ -260,6 +296,7 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     this->row_n = 0;
     return;
   }
+  Future<void> *left_future;
   if (!relation_is_sorted(existing_relation_index, existing_relation_key_index)) {
     if (r_existing.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -267,8 +304,13 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
       aux.size = r_existing.capacity;
     }
     sort_context.reset();
-    r_existing.sort({aux, sort_context}, sort_threshold);
+    left_future = &scheduler.add_task(sort_wrapper, &r_existing, sort_threshold);
+//    r_existing.sort({aux, sort_context}, sort_threshold);
+  } else {
+    left_future = &scheduler.add_task(noop);
   }
+
+  Future<void> *right_future;
   if (!relation_is_sorted(new_relation_index, new_relation_key_index)) {
     if (r_new.capacity > aux.capacity) {
       aux.clear_and_free();
@@ -276,8 +318,17 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
       aux.size = r_new.capacity;
     }
     sort_context.reset();
-    r_new.sort({aux, sort_context}, sort_threshold);
+    right_future = &scheduler.add_task(sort_wrapper, &r_new, sort_threshold);
+//    r_new.sort({aux, sort_context}, sort_threshold);
+  } else {
+    right_future = &scheduler.add_task(noop);
   }
+
+  left_future->wait();
+  right_future->wait();
+  left_future->free();
+  right_future->free();
+
   Join join;
   auto join_result = join(r_existing, r_new);
   r_existing.clear_and_free();
@@ -439,7 +490,7 @@ void IntermediateResult::execute_join(const Predicate &predicate) {
 
 void IntermediateResult::execute_join_static(IntermediateResult *ir, const Predicate &predicate) {
   ir->execute_join(predicate.lhs.first, predicate.lhs.second,
-      predicate.rhs.first, predicate.rhs.second);
+                   predicate.rhs.first, predicate.rhs.second);
 }
 
 void IntermediateResult::Sorting::set_none() {

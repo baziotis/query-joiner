@@ -104,9 +104,6 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    */
 //  Future<void> previous_join;
 
- private:
-
-
 
   /**
    * Creates a joinable object that contains <key, rowid> pairs.
@@ -119,8 +116,6 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    * @return A Joinable object.
    */
   Joinable to_joinable(size_t relation_index, size_t key_index);
-
-
 
   void execute_join_as_filter(
       size_t left_relation_index, size_t left_key_index,

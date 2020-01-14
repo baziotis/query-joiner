@@ -3,7 +3,7 @@
 #include "relation_storage.h"
 #include "query_executor.h"
 
-TaskScheduler scheduler{8, 1000};
+TaskScheduler scheduler{4, 1000};
 
 void print_sums(StretchyBuf<uint64_t> sums) {
   for (size_t i = 0; i < sums.len; i++) {
@@ -46,6 +46,7 @@ int main(int argc, char *args[]) {
   relation_storage.insert_from_filenames(interpreter.begin(), interpreter.end());
 
   while (interpreter.read_query_batch()) {
+    size_t index = 0;
     StretchyBuf<Future<StretchyBuf<uint64_t>>> future_batch_sums;
     StretchyBuf<QueryExecutor*> query_executors;
     for (char *query : interpreter) {
@@ -54,10 +55,17 @@ int main(int argc, char *args[]) {
       future_batch_sums.push(
           p_executor->execute_query_async(pqr, query));
       query_executors.push(p_executor);
+      if (index == 2) {
+        print_batch_sums(future_batch_sums);
+        future_batch_sums.clear();
+        index = 0U;
+      }
+      ++index;
     }
     print_batch_sums(future_batch_sums);
-    future_batch_sums.free();
-    free_query_executors(query_executors);
+//    print_batch_sums(future_batch_sums);
+//    future_batch_sums.free();
+//    free_query_executors(query_executors);
   }
 
   relation_storage.free();
