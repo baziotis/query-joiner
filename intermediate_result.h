@@ -29,7 +29,7 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    * of a query.
    * @param max_column_n The maximum number of relations participating.
    */
-  explicit IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr);
+  explicit IntermediateResult(RelationStorage &rs, const ParseQueryResult &pqr);
 
   /**
    * Deallocates memory used by the row-id columns if necessery.

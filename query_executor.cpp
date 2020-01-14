@@ -2,6 +2,7 @@
 // Created by aris on 7/1/20.
 //
 
+#include <mutex>
 #include "query_executor.h"
 
 extern TaskScheduler scheduler;
@@ -9,11 +10,12 @@ extern TaskScheduler scheduler;
 QueryExecutor::QueryExecutor(RelationStorage &rs)
 : intermediate_results(), relation_storage(rs) {}
 
-StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult &pqr) {
+StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *query) {
   // Clean up the ir's.
   intermediate_results.clear();
   intermediate_results.free();
-  size_t i = 0;
+  assert(pqr.predicates.size > 0);
+  int is_chain = 0;
   for (auto predicate: pqr.predicates) {
     if (predicate.kind != PRED::JOIN)
       continue;
@@ -35,8 +37,10 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult &pqr) {
           predicate.rhs.first, predicate.rhs.second);
       intermediate_results_remove_at(target_ir_index_2);
     } else if (target_ir_index_1 == -1 && target_ir_index_2 == -1) {
+      assert(++is_chain < 2); // Make sure we enter this case once only for chains.
       // If both relations are new add a new ir to the list.
       IntermediateResult new_ir(relation_storage, pqr);
+      // TODO locks needed here.
       intermediate_results.push(new_ir); // first push and then start to execute...
       intermediate_results[intermediate_results.len-1].execute_join(predicate);
     } else {
@@ -80,3 +84,12 @@ void QueryExecutor::intermediate_results_remove_at(size_t index) {
 void QueryExecutor::free() {
   intermediate_results.free();
 }
+
+Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query) {
+  return scheduler.add_task(execute_query_static, this, pqr, query);
+}
+
+StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query) {
+  return this_qe->execute_query(pqr, query);
+}
+

@@ -17,17 +17,27 @@
 class QueryExecutor {
  public:
   explicit QueryExecutor(RelationStorage &rs);
+
   /**
    * Executes a query based on it's parse result.
    * @param pqr Parse result.
    * @return List of the sums.
    */
-  StretchyBuf<uint64_t> execute_query(ParseQueryResult &pqr);
+  StretchyBuf<uint64_t> execute_query(ParseQueryResult pqr, char *query);
+
+  /**
+   * Executes a query and returns a future object that will yield it's result.
+   *
+   * @param pqr Parse result.
+   * @return Future list of the sums.
+   */
+  Future<StretchyBuf<uint64_t>> execute_query_async(ParseQueryResult pqr, char *query);
+
   void free();
 
  private:
   StretchyBuf<IntermediateResult> intermediate_results;
-  RelationStorage &relation_storage;
+  RelationStorage relation_storage;
 
   /**
    * Get's the index of the ir that contains relation 'r'
@@ -42,6 +52,8 @@ class QueryExecutor {
    * @param i Index.
    */
   void intermediate_results_remove_at(size_t i);
+
+  static StretchyBuf<uint64_t> execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query);
 };
 
 #endif //QUERY_JOINER__QUERY_EXECUTOR_H_

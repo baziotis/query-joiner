@@ -3,7 +3,7 @@
 
 extern TaskScheduler scheduler;
 
-IntermediateResult::IntermediateResult(RelationStorage &rs, ParseQueryResult &pqr)
+IntermediateResult::IntermediateResult(RelationStorage &rs, const ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
       row_n(0), max_column_n(rs.size), aux{}, sort_context{} {
   this->size = rs.size;
@@ -100,6 +100,8 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
   if (r_left.size == 0 || r_right.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
+    this->operator[](left_relation_index) = StretchyBuf<u64>(0);
+    this->operator[](right_relation_index) = StretchyBuf<u64>(0);
     return;
   }
   if (!relation_is_sorted(left_relation_index, left_key_index)) {
@@ -153,6 +155,10 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
                                                     size_t right_key_index) {
   assert(column_is_allocated(this_relation_index));
   if (this->row_n == 0 || ir.row_n == 0) {
+    for (size_t i = 0; i < ir.column_n; i++) {
+      if (ir.column_is_allocated(i))
+        this->operator[](i) = StretchyBuf<u64>(0);
+    }
     ir.clear_and_free();
     this->column_n += ir.column_n;
     return *this;
@@ -241,6 +247,8 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   assert(!column_is_allocated(new_relation_index));
   if (this->row_n == 0) {
     column_n++;
+    this->operator[](existing_relation_index) = StretchyBuf<u64>(0);
+    this->operator[](new_relation_index) = StretchyBuf<u64>(0);
     return;
   }
   Joinable r_existing = this->to_joinable(existing_relation_index, existing_relation_key_index);
@@ -425,6 +433,7 @@ void IntermediateResult::execute_join(const Predicate &predicate) {
   previous_join = scheduler.add_task(
       execute_join_static, this, predicate
       );
+//  execute_join_static(this, predicate);
 }
 
 void IntermediateResult::execute_join_static(IntermediateResult *ir, const Predicate &predicate) {

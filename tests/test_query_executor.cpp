@@ -48,9 +48,9 @@ int main(int argc, char *args[]) {
   while (interpreter.read_query_batch()) {
     for (char *query : interpreter) {
       ParseQueryResult pqr = parse_query(query);
-      reorder_predicates(pqr);
-      auto sums = query_executor.execute_query(pqr);
-      print_sums(sums);
+//      reorder_predicates(pqr);
+      auto sums = query_executor.execute_query_async(pqr);
+//      print_sums(sums);
       sums.free();
       pqr.predicates.clear_and_free();
       pqr.sums.clear_and_free();
