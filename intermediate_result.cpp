@@ -82,9 +82,9 @@ void IntermediateResult::execute_join(size_t left_relation_index,
 
 static size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
 
-static void noop() {}
+static inline void noop() {}
 
-static void sort_wrapper(Joinable *joinable, size_t threshold) {
+static inline void sort_wrapper(Joinable *joinable, size_t threshold) {
   Joinable aux{joinable->size};
   aux.size = joinable->size;
   StretchyBuf<Joinable::SortContext> context_stack{};
@@ -123,7 +123,6 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
     }
     sort_context.reset();
     left_future = &scheduler.add_task(sort_wrapper, &r_left, sort_threshold);
-//    r_left.sort({aux, sort_context}, sort_threshold);
   } else {
     left_future = &scheduler.add_task(noop);
   }
@@ -136,7 +135,6 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
     }
     sort_context.reset();
     right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
-//    r_right.sort({aux, sort_context}, sort_threshold);
   } else {
     right_future = &scheduler.add_task(noop);
   }
@@ -203,7 +201,6 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
     }
     sort_context.reset();
     left_future = &scheduler.add_task(sort_wrapper, &r_this, sort_threshold);
-//    r_this.sort({aux, sort_context}, sort_threshold);
   } else {
     left_future = &scheduler.add_task(noop);
   }
@@ -217,7 +214,6 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
     }
     sort_context.reset();
     right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
-//    r_right.sort({aux, sort_context}, sort_threshold);
   } else {
     right_future = &scheduler.add_task(noop);
   }
@@ -305,7 +301,6 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     }
     sort_context.reset();
     left_future = &scheduler.add_task(sort_wrapper, &r_existing, sort_threshold);
-//    r_existing.sort({aux, sort_context}, sort_threshold);
   } else {
     left_future = &scheduler.add_task(noop);
   }
@@ -319,7 +314,6 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     }
     sort_context.reset();
     right_future = &scheduler.add_task(sort_wrapper, &r_new, sort_threshold);
-//    r_new.sort({aux, sort_context}, sort_threshold);
   } else {
     right_future = &scheduler.add_task(noop);
   }

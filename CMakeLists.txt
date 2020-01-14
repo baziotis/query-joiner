@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(query_joiner)
 
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-Ofast")
 link_libraries(-lpthread)
 
 add_executable(query_joiner main.cpp array.h common.h pair.h metaprogramming.h relation_data.h relation_data.cpp

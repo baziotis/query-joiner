@@ -95,15 +95,12 @@ Future<void> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *quer
 void print_sums(StretchyBuf<uint64_t> sums) {
   for (size_t i = 0; i < sums.len; i++) {
     auto sum = sums[i];
-    if (sum == 0)
-      printf("%s", "NULL");
-    else
+    if (sum != 0) {
       printf("%lu", sum);
-
-    if (i == sums.len - 1)
-      printf("\n");
-    else
-      printf(" ");
+    } else {
+      printf("%s", "NULL");
+    }
+    printf("%s", (i != sums.len - 1) ? " " : "\n");
   }
 }
 
