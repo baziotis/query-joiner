@@ -7,7 +7,7 @@
 #if DEBUG
 #include <cassert>
 #else
-#define assert(cond)
+#define assert(emtpy_cond)
 #endif
 
 #include <cstdint>

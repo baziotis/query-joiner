@@ -88,13 +88,18 @@ void QueryExecutor::free() {
   intermediate_results.free();
 }
 
-Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query) {
-  return scheduler.add_task(execute_query_static, this, pqr, query);
+Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query, TaskState *state) {
+  return scheduler.add_task(execute_query_static, this, pqr, query, state);
 }
 
-StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query) {
+StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
+    TaskState *state) {
 	auto res = this_qe->execute_query(pqr, query);
 	this_qe->free();
-	return res;	
+	pthread_mutex_lock(&state->mutex);
+	--state->query_index;
+	pthread_cond_signal(&state->notify);
+	pthread_mutex_unlock(&state->mutex);
+	return res;
 }
 

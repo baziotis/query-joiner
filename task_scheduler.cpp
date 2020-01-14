@@ -7,17 +7,17 @@ static void *worker(void *arg) {
   for (;;) {
     pthread_mutex_lock(&state->queue_mutex);
     while (!state->stop && state->task_queue.emtpy()) {
-      pthread_cond_wait(&state->cond, &state->queue_mutex);
+      pthread_cond_wait(&state->emtpy_cond, &state->queue_mutex);
     }
     if (state->stop && state->task_queue.emtpy()) {
       pthread_mutex_unlock(&state->queue_mutex);
       break;
     }
     std::function<void()> &task = state->task_queue.pop();
+    pthread_cond_signal(&state->full_cond);
     pthread_mutex_unlock(&state->queue_mutex);
     task();
   }
-  report("Stopped!");
   pthread_exit(NULL);
 }
 
@@ -34,7 +34,7 @@ void TaskScheduler::start() {
 void TaskScheduler::wait_remaining_and_stop() {
   pthread_mutex_lock(&state->queue_mutex);
   state->stop = true;
-  pthread_cond_broadcast(&state->cond);
+  pthread_cond_broadcast(&state->emtpy_cond);
   pthread_mutex_unlock(&state->queue_mutex);
   for (size_t i = 0U; i != nr_threads; ++i) {
     pthread_join(threads[i], NULL);

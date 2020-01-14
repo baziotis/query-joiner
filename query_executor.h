@@ -9,6 +9,16 @@
 #include "array.h"
 #include "intermediate_result.h"
 
+struct TaskState {
+  TaskState() : query_index{0U} {
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&notify, NULL);
+  }
+  pthread_mutex_t mutex;
+  pthread_cond_t notify;
+  size_t query_index;
+};
+
 /**
  * This class is used to perform query executions,
  * with the predicates being executed at any order.
@@ -31,7 +41,7 @@ class QueryExecutor {
    * @param pqr Parse result.
    * @return Future list of the sums.
    */
-  Future<StretchyBuf<uint64_t>> execute_query_async(ParseQueryResult pqr, char *query);
+  Future<StretchyBuf<uint64_t>> execute_query_async(ParseQueryResult pqr, char *query, TaskState *state);
 
   void free();
 
@@ -53,7 +63,8 @@ class QueryExecutor {
    */
   void intermediate_results_remove_at(size_t i);
 
-  static StretchyBuf<uint64_t> execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query);
+  static StretchyBuf<uint64_t> execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
+      TaskState *state);
 };
 
 #endif //QUERY_JOINER__QUERY_EXECUTOR_H_

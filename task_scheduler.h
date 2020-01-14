@@ -204,12 +204,14 @@ struct Future {
 struct ThreadState {
   ThreadState(size_t queue_cap) : stop{false}, task_queue{queue_cap} {
     pthread_mutex_init(&queue_mutex, NULL);
-    pthread_cond_init(&cond, NULL);
+    pthread_cond_init(&emtpy_cond, NULL);
+    pthread_cond_init(&full_cond, NULL);
   }
 
   Queue<std::function<void()>> task_queue;
   pthread_mutex_t queue_mutex;
-  pthread_cond_t cond;
+  pthread_cond_t emtpy_cond;
+  pthread_cond_t full_cond;
   bool stop;
 };
 
@@ -254,8 +256,11 @@ Future<typename std::result_of<F(Args...)>::type> &TaskScheduler::add_task(F cal
   Task<F, Args...> *task = allocate_task(callable, args...);
   Future<ReturnType> &future = task->get_future();
   pthread_mutex_lock(&state->queue_mutex);
+  while (state->task_queue.full()) {
+    pthread_cond_wait(&state->full_cond, &state->queue_mutex);
+  }
   state->task_queue.push([task]() { task->run(); });
-  pthread_cond_signal(&state->cond);
+  pthread_cond_signal(&state->emtpy_cond);
   pthread_mutex_unlock(&state->queue_mutex);
   return future;
 }
@@ -265,8 +270,11 @@ Future<typename std::result_of<F(Args...)>::type> &TaskScheduler::add_task(const
   using ReturnType = typename std::result_of<F(Args...)>::type;
   Future<ReturnType> &future = task.get_future();
   pthread_mutex_lock(&state->queue_mutex);
+  while (state->task_queue.full()) {
+    pthread_cond_wait(&state->full_cond, &state->queue_mutex);
+  }
   state->task_queue.push([task]() { task.run(); });
-  pthread_cond_signal(&state->cond);
+  pthread_cond_signal(&state->emtpy_cond);
   pthread_mutex_unlock(&state->queue_mutex);
   return future;
 }

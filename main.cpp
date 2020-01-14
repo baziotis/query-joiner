@@ -3,7 +3,8 @@
 #include "relation_storage.h"
 #include "query_executor.h"
 
-TaskScheduler scheduler{4, 1000};
+size_t nr_threads = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
+TaskScheduler scheduler{nr_threads};
 
 void print_sums(StretchyBuf<uint64_t> sums) {
   for (size_t i = 0; i < sums.len; i++) {
@@ -27,7 +28,7 @@ void print_batch_sums(StretchyBuf<Future<StretchyBuf<uint64_t>>> batch_sums) {
   }
 }
 
-void free_query_executors(StretchyBuf<QueryExecutor*> executors) {
+void free_query_executors(StretchyBuf<QueryExecutor *> executors) {
   for (auto &executor: executors) {
     executor->free();
   }
@@ -45,26 +46,29 @@ int main(int argc, char *args[]) {
   RelationStorage relation_storage(interpreter.remaining_commands());
   relation_storage.insert_from_filenames(interpreter.begin(), interpreter.end());
 
+  TaskState state{};
+
   while (interpreter.read_query_batch()) {
-    size_t index = 0;
+//    Future<StretchyBuf<uint64_t>> future_batch_sums[4];
     StretchyBuf<Future<StretchyBuf<uint64_t>>> future_batch_sums;
-    StretchyBuf<QueryExecutor*> query_executors;
+    StretchyBuf<QueryExecutor *> query_executors;
     for (char *query : interpreter) {
       QueryExecutor *p_executor = new QueryExecutor(relation_storage);
       ParseQueryResult pqr = parse_query(query);
-      future_batch_sums.push(
-          p_executor->execute_query_async(pqr, query));
+      pthread_mutex_lock(&state.mutex);
+      future_batch_sums.push(p_executor->execute_query_async(pqr, query, &state));
       query_executors.push(p_executor);
-      if (index == 2) {
-        print_batch_sums(future_batch_sums);
-        future_batch_sums.clear();
-        index = 0U;
+
+      ++state.query_index;
+      while (state.query_index == (nr_threads / 2)) {
+        pthread_cond_wait(&state.notify, &state.mutex);
       }
-      ++index;
+      pthread_mutex_unlock(&state.mutex);
     }
+
     print_batch_sums(future_batch_sums);
-//    print_batch_sums(future_batch_sums);
-//    future_batch_sums.free();
+    future_batch_sums.free();
+    //    print_batch_sums(future_batch_sums);
 //    free_query_executors(query_executors);
   }
 

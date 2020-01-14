@@ -104,7 +104,7 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
    */
 //  Future<void> previous_join;
 
-
+ private:
   /**
    * Creates a joinable object that contains <key, rowid> pairs.
    * The keys are fetched from relation_storage based on "relation_index"
@@ -157,6 +157,5 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   size_t column_n;
   size_t row_n;
 };
-
 
 #endif //SORT_MERGE_JOIN__INTERMEDIATE_RESULT_H_
