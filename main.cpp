@@ -3,7 +3,7 @@
 #include "relation_storage.h"
 #include "query_executor.h"
 
-TaskScheduler scheduler{100};
+TaskScheduler scheduler{8, 1000};
 
 void print_sums(StretchyBuf<uint64_t> sums) {
   for (size_t i = 0; i < sums.len; i++) {
