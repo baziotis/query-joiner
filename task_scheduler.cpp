@@ -40,5 +40,3 @@ void TaskScheduler::wait_remaining_and_stop() {
     pthread_join(threads[i], NULL);
   }
 }
-
-

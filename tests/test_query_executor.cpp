@@ -49,9 +49,9 @@ int main(int argc, char *args[]) {
     for (char *query : interpreter) {
       ParseQueryResult pqr = parse_query(query);
 //      reorder_predicates(pqr);
-      auto sums = query_executor.execute_query_async(pqr);
+//      auto sums = query_executor.execute_query_async(pqr);
 //      print_sums(sums);
-      sums.free();
+//      sums.free();
       pqr.predicates.clear_and_free();
       pqr.sums.clear_and_free();
     }

@@ -30,8 +30,8 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *q
       auto &target_ir_1 = intermediate_results[target_ir_index_1];
       auto &target_ir_2 = intermediate_results[target_ir_index_2];
       // Don't forget to wait for the ir's to finish their joins.
-      target_ir_1.previous_join.wait();
-      target_ir_2.previous_join.wait();
+//      target_ir_1.previous_join.wait();
+//      target_ir_2.previous_join.wait();
       target_ir_1.join_with_ir(
           target_ir_2, predicate.lhs.first, predicate.lhs.second,
           predicate.rhs.first, predicate.rhs.second);
@@ -56,14 +56,14 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *q
   assert(intermediate_results.len == 1);
   // Don't forget to wait for the last join predicate
   // to finish before executing select clause.
-  intermediate_results[0].previous_join.wait();
+//  intermediate_results[0].previous_join.wait();
   return intermediate_results[0].execute_select(pqr.sums);
 }
 
 int QueryExecutor::get_target_ir_index(size_t relation_index) {
   for (int i = 0; i < intermediate_results.len; ++i) {
     auto ir = intermediate_results[i];
-    ir.previous_join.wait();
+//    ir.previous_join.wait();
     if (ir.column_is_allocated(relation_index))
       return i;
   }

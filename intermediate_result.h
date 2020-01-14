@@ -102,7 +102,7 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   /**
    * This Future object represents the return value of method addtask in task scheduler.
    */
-  Future<void> previous_join;
+//  Future<void> previous_join;
 
  private:
 

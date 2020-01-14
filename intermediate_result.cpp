@@ -237,6 +237,7 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
   this->sorting.relation_1_sorting_key = this_key_index;
   this->sorting.sorted_relation_index_2 = right_relation_index;
   this->sorting.relation_2_sorting_key = right_key_index;
+  return *this;
 }
 
 void IntermediateResult::execute_common_join(size_t existing_relation_index,
@@ -428,12 +429,12 @@ void IntermediateResult::free() {
 }
 
 void IntermediateResult::execute_join(const Predicate &predicate) {
-  if (column_n != 0)
-    previous_join.wait();
-  previous_join = scheduler.add_task(
-      execute_join_static, this, predicate
-      );
-//  execute_join_static(this, predicate);
+//  if (column_n != 0)
+//    previous_join.wait();
+//  previous_join = scheduler.add_task(
+//      execute_join_static, this, predicate
+//      );
+  execute_join_static(this, predicate);
 }
 
 void IntermediateResult::execute_join_static(IntermediateResult *ir, const Predicate &predicate) {
