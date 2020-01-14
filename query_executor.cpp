@@ -82,6 +82,9 @@ void QueryExecutor::intermediate_results_remove_at(size_t index) {
 }
 
 void QueryExecutor::free() {
+	for (auto &v : intermediate_results) {
+		v.free();
+	}
   intermediate_results.free();
 }
 
@@ -90,6 +93,8 @@ Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResul
 }
 
 StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query) {
-  return this_qe->execute_query(pqr, query);
+	auto res = this_qe->execute_query(pqr, query);
+	this_qe->free();
+	return res;	
 }
 
