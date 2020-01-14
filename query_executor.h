@@ -41,7 +41,7 @@ class QueryExecutor {
    * @param pqr Parse result.
    * @return Future list of the sums.
    */
-  Future<StretchyBuf<uint64_t>> execute_query_async(ParseQueryResult pqr, char *query, TaskState *state);
+  Future<void> execute_query_async(ParseQueryResult pqr, char *query, TaskState *state);
 
   void free();
 
@@ -63,7 +63,7 @@ class QueryExecutor {
    */
   void intermediate_results_remove_at(size_t i);
 
-  static StretchyBuf<uint64_t> execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
+  static void execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
       TaskState *state);
 };
 

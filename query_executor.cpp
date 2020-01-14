@@ -8,7 +8,7 @@
 extern TaskScheduler scheduler;
 
 QueryExecutor::QueryExecutor(RelationStorage &rs)
-: intermediate_results(), relation_storage(rs) {}
+    : intermediate_results(), relation_storage(rs) {}
 
 StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *query) {
   // Clean up the ir's.
@@ -25,7 +25,7 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *q
     int target_ir_index_2 = get_target_ir_index(r2);
 
     if (target_ir_index_1 != -1 && target_ir_index_2 != -1 &&
-          target_ir_index_1 != target_ir_index_2) {
+        target_ir_index_1 != target_ir_index_2) {
       // If the relation is present in different ir's.
       auto &target_ir_1 = intermediate_results[target_ir_index_1];
       auto &target_ir_2 = intermediate_results[target_ir_index_2];
@@ -42,12 +42,12 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr, char *q
       IntermediateResult new_ir(relation_storage, pqr);
       // TODO locks needed here.
       intermediate_results.push(new_ir); // first push and then start to execute...
-      intermediate_results[intermediate_results.len-1].execute_join(predicate);
+      intermediate_results[intermediate_results.len - 1].execute_join(predicate);
     } else {
       // This is the common case. What we did in previous versions.
       auto &target_ir = target_ir_index_1 == -1 ?
-                       intermediate_results[target_ir_index_2] :
-                       intermediate_results[target_ir_index_1];
+                        intermediate_results[target_ir_index_2] :
+                        intermediate_results[target_ir_index_1];
       target_ir.execute_join(predicate);
     }
   }
@@ -82,24 +82,39 @@ void QueryExecutor::intermediate_results_remove_at(size_t index) {
 }
 
 void QueryExecutor::free() {
-	for (auto &v : intermediate_results) {
-		v.free();
-	}
+  for (auto &v : intermediate_results) {
+    v.free();
+  }
   intermediate_results.free();
 }
 
-Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query, TaskState *state) {
+Future<void> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query, TaskState *state) {
   return scheduler.add_task(execute_query_static, this, pqr, query, state);
 }
 
-StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
-    TaskState *state) {
-	auto res = this_qe->execute_query(pqr, query);
-	this_qe->free();
-	pthread_mutex_lock(&state->mutex);
-	--state->query_index;
-	pthread_cond_signal(&state->notify);
-	pthread_mutex_unlock(&state->mutex);
-	return res;
+void print_sums(StretchyBuf<uint64_t> sums) {
+  for (size_t i = 0; i < sums.len; i++) {
+    auto sum = sums[i];
+    if (sum == 0)
+      printf("%s", "NULL");
+    else
+      printf("%lu", sum);
+
+    if (i == sums.len - 1)
+      printf("\n");
+    else
+      printf(" ");
+  }
+}
+
+void QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
+                                         TaskState *state) {
+  auto res = this_qe->execute_query(pqr, query);
+  this_qe->free();
+  pthread_mutex_lock(&state->mutex);
+  --state->query_index;
+  pthread_cond_signal(&state->notify);
+  pthread_mutex_unlock(&state->mutex);
+  print_sums(res);
 }
 
