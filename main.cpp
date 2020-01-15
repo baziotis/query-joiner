@@ -6,6 +6,18 @@
 size_t nr_threads = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
 TaskScheduler scheduler{nr_threads};
 
+void print_sums(StretchyBuf<uint64_t> sums) {
+  for (size_t i = 0; i < sums.len; i++) {
+    auto sum = sums[i];
+    if (sum != 0) {
+      printf("%lu", sum);
+    } else {
+      printf("%s", "NULL");
+    }
+    printf("%s", (i != sums.len - 1) ? " " : "\n");
+  }
+}
+
 int main(int argc, char *args[]) {
 //    Joinable lhs{10};
 //    Joinable rhs{10};
@@ -49,11 +61,12 @@ int main(int argc, char *args[]) {
   TaskState state{};
 
   QueryExecutor *executor;
+  StretchyBuf<Future<StretchyBuf<uint64_t>>> future_sums{};
   while (interpreter.read_query_batch()) {
     for (char *query : interpreter) {
       executor = new QueryExecutor{relation_storage};
       ParseQueryResult pqr = parse_query(query);
-      executor->execute_query_async(pqr, query, &state);
+      future_sums.push(executor->execute_query_async(pqr, query, &state));
 
       pthread_mutex_lock(&state.mutex);
       ++state.query_index;
@@ -64,6 +77,12 @@ int main(int argc, char *args[]) {
     }
   }
 
+  for (auto &future : future_sums) {
+    print_sums(future.get_value());
+    future.free();
+  }
+
+  future_sums.free();
   fclose(fp);
   return 0;
 }

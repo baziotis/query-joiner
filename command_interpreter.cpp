@@ -20,6 +20,7 @@ bool CommandInterpreter::read_relation_filenames() {
         !strncasecmp(command_buffer.data + command_buffer.len - bytes_read, DONE, DONE_LEN);
   }
   command_buffer.len -= DONE_LEN + 1;
+  return true;
 }
 
 bool CommandInterpreter::read_query_batch() {
@@ -33,6 +34,7 @@ bool CommandInterpreter::read_query_batch() {
     f_encountered = bytes_read == 2 && command_buffer[command_buffer.len - 2] == 'F';
   }
   command_buffer.len -= 2;
+  return true;
 }
 
 CommandInterpreter::CommandIterator CommandInterpreter::begin() {

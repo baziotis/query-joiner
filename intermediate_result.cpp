@@ -93,12 +93,12 @@ static inline void sort_wrapper(Joinable joinable) {
 
 static inline void perform_sort_if_necessary(Joinable lhs, Joinable rhs, bool lhs_sorted, bool rhs_sorted) {
   if (!lhs_sorted && !rhs_sorted) {
-    Future<void> rhs_future = scheduler.add_task(sort_wrapper, rhs);
     Future<void> lhs_future = scheduler.add_task(sort_wrapper, lhs);
-    rhs_future.wait();
+    Future<void> rhs_future = scheduler.add_task(sort_wrapper, rhs);
     lhs_future.wait();
-    rhs_future.free();
+    rhs_future.wait();
     lhs_future.free();
+    rhs_future.free();
   } else if (!lhs_sorted) {
     sort_wrapper(lhs);
   } else {

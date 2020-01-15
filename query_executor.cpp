@@ -88,30 +88,18 @@ void QueryExecutor::free() {
   intermediate_results.free();
 }
 
-Future<void> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query, TaskState *state) {
+Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResult pqr, char *query, TaskState *state) {
   return scheduler.add_task(execute_query_static, this, pqr, query, state);
 }
 
-void print_sums(StretchyBuf<uint64_t> sums) {
-  for (size_t i = 0; i < sums.len; i++) {
-    auto sum = sums[i];
-    if (sum != 0) {
-      printf("%lu", sum);
-    } else {
-      printf("%s", "NULL");
-    }
-    printf("%s", (i != sums.len - 1) ? " " : "\n");
-  }
-}
-
-void QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
-                                         TaskState *state) {
+StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe, ParseQueryResult pqr, char *query,
+                                                          TaskState *state) {
   auto res = this_qe->execute_query(pqr, query);
   this_qe->free();
   pthread_mutex_lock(&state->mutex);
   --state->query_index;
   pthread_cond_signal(&state->notify);
   pthread_mutex_unlock(&state->mutex);
-  print_sums(res);
+  return res;
 }
 

@@ -254,12 +254,11 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   for (size_t i = 0U; i != nr_threads; ++i) {
     pthread_join(threads[i], NULL);
   }
-
-  group_indexes.free();
-  delete args;
-  delete[] threads;
-//  StretchyBuf<Join::JoinRow>
-//      res{};
+//
+//  group_indexes.free();
+//  delete args;
+//  delete[] threads;
+//  StretchyBuf<Join::JoinRow> res{};
 //  size_t prev_j = 0U;
 //  for (size_t i = 0U; i != lhs.size; ++i) {
 //    StretchyBuf<u64> right_row_ids{};
@@ -281,6 +280,7 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
 //  }
 //  if (res.len != 0)
 //    res.shrink_to_fit();
+//  return res;
   return *result;
 }
 

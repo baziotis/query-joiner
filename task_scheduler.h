@@ -217,7 +217,7 @@ struct ThreadState {
 
 struct TaskScheduler {
   TaskScheduler() = delete;
-  TaskScheduler(size_t nr_threads, size_t queue_size = 10U);
+  TaskScheduler(size_t nr_threads, size_t queue_size = 100U);
 
   void start();
 
