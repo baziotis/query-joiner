@@ -66,7 +66,7 @@ static ssize_t partition(JoinableEntry *data, ssize_t left_index, ssize_t right_
   JoinableEntry pivot = data[right_index];
   ssize_t i = left_index - 1;
   for (ssize_t j = left_index; j != right_index; ++j) {
-  if (data[j] <= pivot) {
+    if (data[j] <= pivot) {
       ++i;
       std::swap(data[i], data[j]);
     }
@@ -168,29 +168,119 @@ Joinable Joinable::empty() {
   return empty;
 }
 
-StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
-  StretchyBuf<Join::JoinRow> res{};
+using GroupIndex = Pair<size_t, size_t>;
+using GroupIndexes = Pair<GroupIndex, GroupIndex>;
+
+struct JoinThreadArgs {
+  StretchyBuf<GroupIndexes> *group_indexes;
+  StretchyBuf<Join::JoinRow> *result;
+  volatile size_t *next_index;
+  Joinable *lhs;
+  Joinable *rhs;
+};
+
+static StretchyBuf<GroupIndexes> calculate_group_indexes(Joinable lhs, Joinable rhs) {
+  StretchyBuf<GroupIndexes> res{};
+  size_t prev_i = 0U;
   size_t prev_j = 0U;
-  for (size_t i = 0U; i != lhs.size; ++i) {
-    StretchyBuf<u64> right_row_ids{};
+
+  for (size_t i = 0U; i < lhs.size; ++i) {
+    u64 prev_lhs_key = lhs[prev_i].first;
+    while (i < lhs.size && prev_lhs_key == lhs[i].first) ++i;
+
     size_t j = prev_j;
-    u64 lhs_key = lhs[i].first;
-    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
+    while (j < rhs.size && prev_lhs_key > rhs[j].first) ++j;
     if (j == rhs.size) continue;
+
     prev_j = j;
-    while (j < rhs.size && lhs_key == rhs[j].first) {
-      right_row_ids.push(rhs[j].second);
-      ++j;
+
+    while (j < rhs.size && prev_lhs_key == rhs[j].first) ++j;
+
+    res.push({{prev_i, i}, {prev_j, j}});
+    prev_i = i;
+    prev_j = j;
+  }
+
+  return res;
+}
+
+void *run_merge(void *args) {
+  JoinThreadArgs *info = (JoinThreadArgs *) args;
+  size_t next_index;
+  while ((next_index = __sync_fetch_and_add(info->next_index, 1)) < info->group_indexes->len) {
+    GroupIndexes group_indexes = (*info->group_indexes)[next_index];
+    GroupIndex lhs_gindex = group_indexes.first;
+    GroupIndex rhs_gindex = group_indexes.second;
+
+    size_t rhs_gsize = rhs_gindex.second - rhs_gindex.first;
+    StretchyBuf<u64> rhs_row_ids{rhs_gsize};
+    for (size_t j = rhs_gindex.first; j < rhs_gindex.second; ++j) {
+      rhs_row_ids.push((*info->rhs)[j].second);
     }
 
-    if (right_row_ids.len) {
-      right_row_ids.shrink_to_fit();
-      res.push(make_pair(lhs[i].second, right_row_ids));
-      right_row_ids = StretchyBuf<u64>{};
+    for (size_t i = lhs_gindex.first; i < lhs_gindex.second; ++i) {
+      StretchyBuf<u64> _rhs_row_ids{rhs_gsize};
+      for (u64 v : rhs_row_ids) {
+        _rhs_row_ids.push(v);
+      }
+      (*info->result)[i] = make_pair((*info->lhs)[i].second, _rhs_row_ids);
     }
   }
-  if (res.len != 0)
-    res.shrink_to_fit();
-  return res;
+  pthread_exit(NULL);
+}
+
+StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
+  StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
+//  for (auto g : group_indexes) {
+//    printf("LHS start = %lu, LHS end = %lu | RHS start = %lu, RHS end = %lu\n",
+//           g.first.first, g.first.second, g.second.first, g.second.second);
+//  }
+  StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
+  result->len = group_indexes[group_indexes.len - 1].first.second;
+  memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
+  volatile size_t next_index = 0U;
+  JoinThreadArgs *args = new JoinThreadArgs{};
+  args->group_indexes = &group_indexes;
+  args->next_index = &next_index;
+  args->lhs = &lhs;
+  args->rhs = &rhs;
+  args->result = result;
+  size_t nr_threads = sysconf(_SC_NPROCESSORS_ONLN);
+  pthread_t *threads = new pthread_t[nr_threads];
+
+  for (size_t i = 0U; i != nr_threads; ++i) {
+    pthread_create(&threads[i], NULL, run_merge, args);
+  }
+  for (size_t i = 0U; i != nr_threads; ++i) {
+    pthread_join(threads[i], NULL);
+  }
+
+  group_indexes.free();
+  delete args;
+  delete[] threads;
+//  StretchyBuf<Join::JoinRow>
+//      res{};
+//  size_t prev_j = 0U;
+//  for (size_t i = 0U; i != lhs.size; ++i) {
+//    StretchyBuf<u64> right_row_ids{};
+//    size_t j = prev_j;
+//    u64 lhs_key = lhs[i].first;
+//    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
+//    if (j == rhs.size) continue;
+//    prev_j = j;
+//    while (j < rhs.size && lhs_key == rhs[j].first) {
+//      right_row_ids.push(rhs[j].second);
+//      ++j;
+//    }
+//
+//    if (right_row_ids.len) {
+//      right_row_ids.shrink_to_fit();
+//      res.push(make_pair(lhs[i].second, right_row_ids));
+//      right_row_ids = StretchyBuf<u64>{};
+//    }
+//  }
+//  if (res.len != 0)
+//    res.shrink_to_fit();
+  return *result;
 }
 

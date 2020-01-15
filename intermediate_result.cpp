@@ -82,15 +82,28 @@ void IntermediateResult::execute_join(size_t left_relation_index,
 
 static size_t sort_threshold = sysconf(_SC_LEVEL1_DCACHE_SIZE);
 
-static inline void noop() {}
-
-static inline void sort_wrapper(Joinable *joinable, size_t threshold) {
-  Joinable aux{joinable->size};
-  aux.size = joinable->size;
+static inline void sort_wrapper(Joinable joinable) {
+  Joinable aux{joinable.size};
+  aux.size = joinable.size;
   StretchyBuf<Joinable::SortContext> context_stack{};
-  joinable->sort({aux, context_stack}, threshold);
+  joinable.sort({aux, context_stack}, sort_threshold);
   aux.clear_and_free();
   context_stack.free();
+}
+
+static inline void perform_sort_if_necessary(Joinable lhs, Joinable rhs, bool lhs_sorted, bool rhs_sorted) {
+  if (!lhs_sorted && !rhs_sorted) {
+    Future<void> rhs_future = scheduler.add_task(sort_wrapper, rhs);
+    Future<void> lhs_future = scheduler.add_task(sort_wrapper, lhs);
+    rhs_future.wait();
+    lhs_future.wait();
+    rhs_future.free();
+    lhs_future.free();
+  } else if (!lhs_sorted) {
+    sort_wrapper(lhs);
+  } else {
+    sort_wrapper(rhs);
+  }
 }
 
 void IntermediateResult::execute_initial_join(size_t left_relation_index,
@@ -114,34 +127,10 @@ void IntermediateResult::execute_initial_join(size_t left_relation_index,
     this->operator[](right_relation_index) = StretchyBuf<u64>(0);
     return;
   }
-  Future<void> *left_future;
-  if (!relation_is_sorted(left_relation_index, left_key_index)) {
-    if (r_left.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_left.capacity);
-      aux.size = r_left.capacity;
-    }
-    sort_context.reset();
-    left_future = &scheduler.add_task(sort_wrapper, &r_left, sort_threshold);
-  } else {
-    left_future = &scheduler.add_task(noop);
-  }
-  Future<void> *right_future;
-  if (!relation_is_sorted(right_relation_index, right_key_index)) {
-    if (r_right.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_right.capacity);
-      aux.size = r_right.capacity;
-    }
-    sort_context.reset();
-    right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
-  } else {
-    right_future = &scheduler.add_task(noop);
-  }
-  left_future->wait();
-  right_future->wait();
-  left_future->free();
-  right_future->free();
+
+  bool lhs_sorted = relation_is_sorted(left_relation_index, left_key_index);
+  bool rhs_sorted = relation_is_sorted(right_relation_index, right_key_index);
+  perform_sort_if_necessary(r_left, r_right, lhs_sorted, rhs_sorted);
 
   Join join;
   auto join_result = join(r_left, r_right);
@@ -192,35 +181,10 @@ IntermediateResult IntermediateResult::join_with_ir(IntermediateResult &ir,
     ir.clear_and_free();
     return *this;
   }
-  Future<void> *left_future;
-  if (!relation_is_sorted(this_relation_index, this_key_index)) {
-    if (r_this.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_this.capacity);
-      aux.size = r_this.capacity;
-    }
-    sort_context.reset();
-    left_future = &scheduler.add_task(sort_wrapper, &r_this, sort_threshold);
-  } else {
-    left_future = &scheduler.add_task(noop);
-  }
 
-  Future<void> *right_future;
-  if (!ir.relation_is_sorted(right_relation_index, right_key_index)) {
-    if (r_right.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_right.capacity);
-      aux.size = r_right.capacity;
-    }
-    sort_context.reset();
-    right_future = &scheduler.add_task(sort_wrapper, &r_right, sort_threshold);
-  } else {
-    right_future = &scheduler.add_task(noop);
-  }
-  left_future->wait();
-  right_future->wait();
-  left_future->free();
-  right_future->free();
+  bool lhs_sorted = relation_is_sorted(this_relation_index, this_key_index);
+  bool rhs_sorted = relation_is_sorted(right_relation_index, right_key_index);
+  perform_sort_if_necessary(r_this, r_right, lhs_sorted, rhs_sorted);
 
   Join join;
   auto join_result = join(r_this, r_right);
@@ -292,36 +256,10 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
     this->row_n = 0;
     return;
   }
-  Future<void> *left_future;
-  if (!relation_is_sorted(existing_relation_index, existing_relation_key_index)) {
-    if (r_existing.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_existing.capacity);
-      aux.size = r_existing.capacity;
-    }
-    sort_context.reset();
-    left_future = &scheduler.add_task(sort_wrapper, &r_existing, sort_threshold);
-  } else {
-    left_future = &scheduler.add_task(noop);
-  }
 
-  Future<void> *right_future;
-  if (!relation_is_sorted(new_relation_index, new_relation_key_index)) {
-    if (r_new.capacity > aux.capacity) {
-      aux.clear_and_free();
-      aux.reserve(r_new.capacity);
-      aux.size = r_new.capacity;
-    }
-    sort_context.reset();
-    right_future = &scheduler.add_task(sort_wrapper, &r_new, sort_threshold);
-  } else {
-    right_future = &scheduler.add_task(noop);
-  }
-
-  left_future->wait();
-  right_future->wait();
-  left_future->free();
-  right_future->free();
+  bool lhs_sorted = relation_is_sorted(existing_relation_index, existing_relation_key_index);
+  bool rhs_sorted = relation_is_sorted(new_relation_index, new_relation_key_index);
+  perform_sort_if_necessary(r_existing, r_new, lhs_sorted, rhs_sorted);
 
   Join join;
   auto join_result = join(r_existing, r_new);

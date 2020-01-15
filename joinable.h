@@ -17,6 +17,7 @@
  */
 using JoinableEntry = Pair<u64, u64>;
 
+
 /**
  * An object which stores only the column values and the row_ids
  * of a Relation or an Intermediate result
