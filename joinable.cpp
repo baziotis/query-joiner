@@ -184,13 +184,17 @@ static StretchyBuf<GroupIndexes> calculate_group_indexes(Joinable lhs, Joinable 
   size_t prev_i = 0U;
   size_t prev_j = 0U;
 
-  for (size_t i = 0U; i < lhs.size; ++i) {
+  size_t i = 0U;
+  while (i < lhs.size + 1) {
     u64 prev_lhs_key = lhs[prev_i].first;
     while (i < lhs.size && prev_lhs_key == lhs[i].first) ++i;
 
     size_t j = prev_j;
     while (j < rhs.size && prev_lhs_key > rhs[j].first) ++j;
-    if (j == rhs.size) continue;
+    if (j == rhs.size) {
+      ++i;
+      continue;
+    }
 
     prev_j = j;
 
@@ -199,6 +203,7 @@ static StretchyBuf<GroupIndexes> calculate_group_indexes(Joinable lhs, Joinable 
     res.push({{prev_i, i}, {prev_j, j}});
     prev_i = i;
     prev_j = j;
+    ++i;
   }
 
   return res;
@@ -230,34 +235,41 @@ void *run_merge(void *args) {
 }
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
-//  StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
-//  for (auto g : group_indexes) {
-//    printf("LHS start = %lu, LHS end = %lu | RHS start = %lu, RHS end = %lu\n",
-//           g.first.first, g.first.second, g.second.first, g.second.second);
-//  }
-//  StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
-//  result->len = group_indexes[group_indexes.len - 1].first.second;
-//  memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
-//  volatile size_t next_index = 0U;
-//  JoinThreadArgs *args = new JoinThreadArgs{};
-//  args->group_indexes = &group_indexes;
-//  args->next_index = &next_index;
-//  args->lhs = &lhs;
-//  args->rhs = &rhs;
-//  args->result = result;
-//  size_t nr_threads = sysconf(_SC_NPROCESSORS_ONLN);
-//  pthread_t *threads = new pthread_t[nr_threads];
-//
-//  for (size_t i = 0U; i != nr_threads; ++i) {
-//    pthread_create(&threads[i], NULL, run_merge, args);
-//  }
-//  for (size_t i = 0U; i != nr_threads; ++i) {
-//    pthread_join(threads[i], NULL);
-//  }
-//
-//  group_indexes.free();
-//  delete args;
-//  delete[] threads;
+  StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
+  /*
+  for (auto g : group_indexes) {
+    printf("LHS start = %lu, LHS end = %lu | RHS start = %lu, RHS end = %lu\n",
+           g.first.first, g.first.second, g.second.first, g.second.second);
+  }
+  */
+  StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
+  result->len = group_indexes[group_indexes.len - 1].first.second;
+  memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
+  volatile size_t next_index = 0U;
+  JoinThreadArgs *args = new JoinThreadArgs{};
+  args->group_indexes = &group_indexes;
+  args->next_index = &next_index;
+  args->lhs = &lhs;
+  args->rhs = &rhs;
+  args->result = result;
+  size_t nr_threads = 1;
+  pthread_t *threads = new pthread_t[nr_threads];
+
+  for (size_t i = 0U; i != nr_threads; ++i) {
+    pthread_create(&threads[i], NULL, run_merge, args);
+  }
+  for (size_t i = 0U; i != nr_threads; ++i) {
+    pthread_join(threads[i], NULL);
+  }
+
+  group_indexes.free();
+  delete args;
+  delete[] threads;
+
+  return *result;
+}
+
+StretchyBuf<Join::JoinRow> Join::normal_join(Joinable lhs, Joinable rhs) {
   StretchyBuf<Join::JoinRow> res{};
   size_t prev_j = 0U;
   for (size_t i = 0U; i != lhs.size; ++i) {
@@ -281,6 +293,4 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   if (res.len != 0)
     res.shrink_to_fit();
   return res;
-//  return *result;
 }
-
