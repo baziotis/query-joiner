@@ -230,57 +230,57 @@ void *run_merge(void *args) {
 }
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
-  StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
+//  StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
 //  for (auto g : group_indexes) {
 //    printf("LHS start = %lu, LHS end = %lu | RHS start = %lu, RHS end = %lu\n",
 //           g.first.first, g.first.second, g.second.first, g.second.second);
 //  }
-  StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
-  result->len = group_indexes[group_indexes.len - 1].first.second;
-  memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
-  volatile size_t next_index = 0U;
-  JoinThreadArgs *args = new JoinThreadArgs{};
-  args->group_indexes = &group_indexes;
-  args->next_index = &next_index;
-  args->lhs = &lhs;
-  args->rhs = &rhs;
-  args->result = result;
-  size_t nr_threads = sysconf(_SC_NPROCESSORS_ONLN);
-  pthread_t *threads = new pthread_t[nr_threads];
-
-  for (size_t i = 0U; i != nr_threads; ++i) {
-    pthread_create(&threads[i], NULL, run_merge, args);
-  }
-  for (size_t i = 0U; i != nr_threads; ++i) {
-    pthread_join(threads[i], NULL);
-  }
+//  StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
+//  result->len = group_indexes[group_indexes.len - 1].first.second;
+//  memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
+//  volatile size_t next_index = 0U;
+//  JoinThreadArgs *args = new JoinThreadArgs{};
+//  args->group_indexes = &group_indexes;
+//  args->next_index = &next_index;
+//  args->lhs = &lhs;
+//  args->rhs = &rhs;
+//  args->result = result;
+//  size_t nr_threads = sysconf(_SC_NPROCESSORS_ONLN);
+//  pthread_t *threads = new pthread_t[nr_threads];
+//
+//  for (size_t i = 0U; i != nr_threads; ++i) {
+//    pthread_create(&threads[i], NULL, run_merge, args);
+//  }
+//  for (size_t i = 0U; i != nr_threads; ++i) {
+//    pthread_join(threads[i], NULL);
+//  }
 //
 //  group_indexes.free();
 //  delete args;
 //  delete[] threads;
-//  StretchyBuf<Join::JoinRow> res{};
-//  size_t prev_j = 0U;
-//  for (size_t i = 0U; i != lhs.size; ++i) {
-//    StretchyBuf<u64> right_row_ids{};
-//    size_t j = prev_j;
-//    u64 lhs_key = lhs[i].first;
-//    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
-//    if (j == rhs.size) continue;
-//    prev_j = j;
-//    while (j < rhs.size && lhs_key == rhs[j].first) {
-//      right_row_ids.push(rhs[j].second);
-//      ++j;
-//    }
-//
-//    if (right_row_ids.len) {
-//      right_row_ids.shrink_to_fit();
-//      res.push(make_pair(lhs[i].second, right_row_ids));
-//      right_row_ids = StretchyBuf<u64>{};
-//    }
-//  }
-//  if (res.len != 0)
-//    res.shrink_to_fit();
-//  return res;
-  return *result;
+  StretchyBuf<Join::JoinRow> res{};
+  size_t prev_j = 0U;
+  for (size_t i = 0U; i != lhs.size; ++i) {
+    StretchyBuf<u64> right_row_ids{};
+    size_t j = prev_j;
+    u64 lhs_key = lhs[i].first;
+    while (j < rhs.size && lhs_key > rhs[j].first) ++j;
+    if (j == rhs.size) continue;
+    prev_j = j;
+    while (j < rhs.size && lhs_key == rhs[j].first) {
+      right_row_ids.push(rhs[j].second);
+      ++j;
+    }
+
+    if (right_row_ids.len) {
+      right_row_ids.shrink_to_fit();
+      res.push(make_pair(lhs[i].second, right_row_ids));
+      right_row_ids = StretchyBuf<u64>{};
+    }
+  }
+  if (res.len != 0)
+    res.shrink_to_fit();
+  return res;
+//  return *result;
 }
 
