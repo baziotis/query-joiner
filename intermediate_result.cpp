@@ -5,7 +5,7 @@ extern TaskScheduler scheduler;
 
 IntermediateResult::IntermediateResult(RelationStorage &rs, const ParseQueryResult &pqr)
     : Array(rs.size), relation_storage(rs), parse_query_result(pqr), column_n(0),
-      row_n(0), max_column_n(rs.size), aux{}, sort_context{} {
+      row_n(0), max_column_n(rs.size), previous_join{nullptr} {
   this->size = rs.size;
   for (size_t i = 0; i < this->size; i++) {
     this->operator[](i).data = nullptr;
@@ -412,12 +412,13 @@ void IntermediateResult::free() {
 }
 
 void IntermediateResult::execute_join(const Predicate &predicate) {
-//  if (column_n != 0)
-//    previous_join.wait();
-//  previous_join = scheduler.add_task(
-//      execute_join_static, this, predicate
-//      );
-  execute_join_static(this, predicate);
+  if (column_n != 0) {
+    if (previous_join != nullptr) {
+      previous_join->wait();
+    }
+  }
+  previous_join = &scheduler.add_task(execute_join_static, this, predicate);
+//  execute_join_static(this, predicate);
 }
 
 void IntermediateResult::execute_join_static(IntermediateResult *ir, const Predicate &predicate) {

@@ -35,9 +35,6 @@ int main(int argc, char *args[]) {
 //      }
 //    }
 
-//  8 0 13 13|0.2=1.0&1.0=2.2&2.1=3.2&0.1>7860|3.3 2.1 3.6
-
-
   scheduler.start();
   // Αdd a file here that contains the full input. (filenames, queries).
   FILE *fp = fopen(args[1], "r");
@@ -52,21 +49,36 @@ int main(int argc, char *args[]) {
 
   QueryExecutor *executor;
   while (interpreter.read_query_batch()) {
+    StretchyBuf<Future<StretchyBuf<uint64_t>>> future_sums{interpreter.remaining_commands()};
     for (char *query : interpreter) {
       executor = new QueryExecutor{relation_storage};
       ParseQueryResult pqr = parse_query(query);
-      executor->execute_query_async(pqr, &state);
+      future_sums.push(executor->execute_query_async(pqr, &state));
 
       pthread_mutex_lock(&state.mutex);
       ++state.query_index;
-      while (state.query_index >= (nr_threads / 2)) {
+      while (state.query_index >= (nr_threads / 3)) {
         pthread_cond_wait(&state.notify, &state.mutex);
       }
       pthread_mutex_unlock(&state.mutex);
     }
-  }
 
-  scheduler.wait_remaining_and_stop();
+    for (auto &future_sum : future_sums) {
+      size_t index = 0;
+      auto sums = future_sum.get_value();
+      for (uint64_t sum : sums) {
+        const char *separator = (index != sums.len - 1) ? " " : "\n";
+        if (sum != 0) {
+          printf("%lu%s", sum, separator);
+        } else {
+          printf("NULL%s", separator);
+        }
+        ++index;
+      }
+    }
+
+    future_sums.free();
+  }
 
   fclose(fp);
   return 0;

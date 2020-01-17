@@ -102,7 +102,7 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
   /**
    * This Future object represents the return value of method addtask in task scheduler.
    */
-//  Future<void> previous_join;
+  Future<void> *previous_join;
 
  private:
   /**
@@ -149,8 +149,6 @@ class IntermediateResult : public Array<StretchyBuf<u64>> {
     int relation_2_sorting_key;
   } sorting;
 
-  Joinable aux;
-  StretchyBuf<Joinable::SortContext> sort_context;
   RelationStorage relation_storage;
   ParseQueryResult parse_query_result;
   size_t max_column_n;
