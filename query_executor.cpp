@@ -28,33 +28,39 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr) {
     int target_ir_index_2 = get_target_ir_index(r2);
 //    report("ir1 = %d, ir2 = %d", target_ir_index_1, target_ir_index_2);
 
-    pthread_mutex_lock(&ir_mutex);
     if (target_ir_index_1 != -1 && target_ir_index_2 != -1 &&
         target_ir_index_1 != target_ir_index_2) {
       // If the relation is present in different ir's.
+      pthread_mutex_lock(&ir_mutex);
       auto &target_ir_1 = intermediate_results[target_ir_index_1];
       auto &target_ir_2 = intermediate_results[target_ir_index_2];
+      pthread_mutex_unlock(&ir_mutex);
       // Don't forget to wait for the ir's to finish their joins.
       target_ir_1.previous_join->wait();
       target_ir_2.previous_join->wait();
       target_ir_1.join_with_ir(
           target_ir_2, predicate.lhs.first, predicate.lhs.second,
           predicate.rhs.first, predicate.rhs.second);
+      pthread_mutex_lock(&ir_mutex);
       intermediate_results_remove_at(target_ir_index_2);
+      pthread_mutex_unlock(&ir_mutex);
     } else if (target_ir_index_1 == -1 && target_ir_index_2 == -1) {
       assert(++is_chain < 2); // Make sure we enter this case once only for chains.
       // If both relations are new add a new ir to the list.
       IntermediateResult new_ir(relation_storage, pqr);
+      pthread_mutex_lock(&ir_mutex);
       intermediate_results.push(new_ir); // first push and then start to execute...
+      pthread_mutex_unlock(&ir_mutex);
       intermediate_results[intermediate_results.len - 1].execute_join(predicate);
     } else {
       // This is the common case. What we did in previous versions.
+      pthread_mutex_lock(&ir_mutex);
       auto &target_ir = target_ir_index_1 == -1 ?
                         intermediate_results[target_ir_index_2] :
                         intermediate_results[target_ir_index_1];
+      pthread_mutex_unlock(&ir_mutex);
       target_ir.execute_join(predicate);
     }
-    pthread_mutex_unlock(&ir_mutex);
   }
   // Make sure that when there are no more join operations,
   // all join operations collapsed to a single ir.
@@ -103,7 +109,7 @@ Future<StretchyBuf<uint64_t>> QueryExecutor::execute_query_async(ParseQueryResul
 }
 
 StretchyBuf<uint64_t> QueryExecutor::execute_query_static(QueryExecutor *this_qe,
-                                                                  ParseQueryResult pqr, TaskState *state) {
+                                                          ParseQueryResult pqr, TaskState *state) {
   auto res = this_qe->execute_query(pqr);
   this_qe->free();
   pthread_mutex_lock(&state->mutex);
