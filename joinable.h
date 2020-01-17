@@ -106,6 +106,7 @@ struct Join {
    * @return An array of Join Rows to be used in order to fill the intermediate result
    */
   StretchyBuf<JoinRow> operator()(Joinable lhs, Joinable rhs);
+  StretchyBuf<Join::JoinRow> normal_join(Joinable lhs, Joinable rhs);
 };
 
 #endif //SORT_MERGE_JOIN__JOINABLE_H_
