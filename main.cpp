@@ -3,6 +3,8 @@
 #include "relation_storage.h"
 #include "query_executor.h"
 
+#include <math.h>
+
 size_t nr_threads = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN) * 2);
 TaskScheduler scheduler{nr_threads};
 
@@ -96,10 +98,11 @@ ParseQueryResult reorder_query(ParseQueryResult pqr, Stats stats) {
     ColumnStat new_stat{new_l, new_u, new_f, new_d};
     new_stat.print();
 
+    // Update the 2 relations that participated.
     stats.relations[p.lhs.first][p.lhs.second] = new_stat;
     stats.relations[p.rhs.first][p.rhs.second] = new_stat;
 
-    // Update _all_ the relations
+    // Update _all_ the rest of the relations.
     int k = 0;
     for (ColumnStat &col_stat : stats.relations[p.lhs.first]) {
       if (k != p.lhs.second && k != p.rhs.second) {
@@ -159,7 +162,7 @@ int main(int argc, char *args[]) {
   const char *input = "10 | 0.1=0.2 & 0.0=0.1 | 0.2 2.5 2.2";
   ParseQueryResult pqr = parse_query(input);
 
-  compute_stats(relation_storage);
+  //compute_stats(relation_storage);
 
   Stats stats;
   stats.relations = Array<Array<ColumnStat>>(1);
@@ -168,9 +171,7 @@ int main(int argc, char *args[]) {
   col_stats.push({1, 2, 3, 4});
   col_stats.push({1, 2, 3, 4});
   stats.relations.push(col_stats);
-  reorder_query(pqr, stats);
-
-  return 0;
+  //reorder_query(pqr, stats);
 
   TaskState state{};
 
