@@ -59,37 +59,83 @@ static void insertion_sort(JoinableEntry *data, size_t length) {
   }
 }
 
-static ssize_t partition(JoinableEntry *data, ssize_t left_index, ssize_t right_index) {
-  std::uniform_int_distribution<ssize_t> distribution(left_index, right_index);
-  ssize_t random_index = distribution(generator);
-  std::swap(data[random_index], data[right_index]);
-  JoinableEntry pivot = data[right_index];
-  ssize_t i = left_index - 1;
-  for (ssize_t j = left_index; j != right_index; ++j) {
-    if (data[j] <= pivot) {
-      ++i;
-      std::swap(data[i], data[j]);
-    }
+using PartitionIndexes = Pair<ssize_t, ssize_t>;
+
+static PartitionIndexes partition(JoinableEntry *data, ssize_t left_index, ssize_t right_index) {
+  if (data[left_index] > data[right_index]) {
+    std::swap(data[left_index], data[right_index]);
   }
-  std::swap(data[i + 1], data[right_index]);
-  return i + 1;
+  ssize_t i = left_index + 1;
+  ssize_t j = right_index - 1;
+  ssize_t k = left_index + 1;
+  JoinableEntry left_pivot = data[left_index];
+  JoinableEntry right_pivot = data[right_index];
+  while (k <= j) {
+    if (data[k] < left_pivot) {
+      std::swap(data[k], data[i]);
+      ++i;
+    } else if (data[k] >= right_pivot) {
+      while (data[j] > right_pivot && k < j) {
+        --j;
+      }
+      std::swap(data[k], data[j]);
+      --j;
+      if (data[k] < left_pivot) {
+        std::swap(data[k], data[i]);
+        ++i;
+      }
+    }
+    ++k;
+  }
+  --i;
+  ++j;
+  std::swap(data[left_index], data[i]);
+  std::swap(data[right_index], data[j]);
+  return {i, j};
 }
+//  std::uniform_int_distribution<ssize_t> distribution(left_index, right_index);
+//  ssize_t random_index = distribution(generator);
+//  std::swap(data[random_index], data[right_index]);
+//  JoinableEntry pivot = data[right_index];
+//  ssize_t i = left_index - 1;
+//  for (ssize_t j = left_index; j != right_index; ++j) {
+//    if (data[j] <= pivot) {
+//      ++i;
+//      std::swap(data[i], data[j]);
+//    }
+//  }
+//  std::swap(data[i + 1], data[right_index]);
+//  return i + 1;
 
 static void quicksort(JoinableEntry *data, ssize_t left_index, ssize_t right_index) {
-  while (left_index < right_index) {
+  if (left_index < right_index) {
     ssize_t length = right_index - left_index + 1;
-    if (length <= 16) {
+    if (length < 20) {
       insertion_sort(data + left_index, length);
       return;
     }
-    ssize_t partition_index = partition(data, left_index, right_index);
-    if (partition_index - left_index < right_index - partition_index) {
-      quicksort(data, left_index, partition_index - 1);
-      left_index = partition_index + 1;
-    } else {
-      quicksort(data, partition_index + 1, right_index);
-      right_index = partition_index - 1;
-    }
+    PartitionIndexes pis = partition(data, left_index, right_index);
+    ssize_t left_pindex = pis.first;
+    ssize_t right_pindex = pis.second;
+    quicksort(data, left_index, left_pindex - 1);
+    quicksort(data, left_pindex + 1, right_pindex - 1);
+    quicksort(data, right_pindex + 1, right_index);
+//    if (left_pindex - left_index < )
+//    if (pis.first - left_index < right_index - pis.second) {
+//      quicksort(data, left_index, pis.first - 1);
+//      left_index = pis.first + 1;
+//    } else {
+//      quicksort(data, pis.second + 1, right_index);
+//      right_index = pis.second - 1;
+//    }
+
+//    if (partition_index - left_index < right_index - partition_index) {
+//      quicksort(data, left_index, partition_index - 1);
+//      left_index = partition_index + 1;
+//    } else {
+//      quicksort(data, partition_index + 1, right_index);
+//      right_index = partition_index - 1;
+//    }
   }
 }
 
@@ -236,12 +282,6 @@ void *run_merge(void *args) {
 
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
-  /*
-  for (auto g : group_indexes) {
-    printf("LHS start = %lu, LHS end = %lu | RHS start = %lu, RHS end = %lu\n",
-           g.first.first, g.first.second, g.second.first, g.second.second);
-  }
-  */
   StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
   result->len = group_indexes[group_indexes.len - 1].first.second;
   memset(result->data, '\0', lhs.size * sizeof(Join::JoinRow));
