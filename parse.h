@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PARSE_H
+#define PARSE_H
 
 #include <cassert>
 
@@ -33,10 +34,15 @@ struct Predicate {
 };
 
 constexpr int max_relations = 20;
+constexpr int max_columns = 20;
+constexpr int max_joins = 4;
 struct ParseQueryResult {
+  int num_relations;
   int actual_relations[max_relations + 1];
   Array<Predicate> predicates;
   Array<Pair<int, int>> sums;
 };
 
 ParseQueryResult parse_query(const char *query);
+
+#endif

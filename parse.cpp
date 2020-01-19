@@ -45,7 +45,8 @@ static void eat_whitespace() {
 // Assume that input contains whitespace-separated numbers
 // that end with '|'. Fill the map `actual_relations` which maps
 // virtual relations to actual relations.
-static void parse_actual_relations(int actual_relations[max_relations+1]) {
+// Return: The number of relations
+static int parse_actual_relations(int actual_relations[max_relations+1]) {
   int i = 0;
   int val;
   // Start reading ints
@@ -56,21 +57,25 @@ static void parse_actual_relations(int actual_relations[max_relations+1]) {
   }
   assert(*input == '|');
   ++input;
+  return i;
 }
 
 static void test_parse_actual_relations() {
   int actual_relations[max_relations+1];
+  int num_rel;
   input = "1 2 4|";
-  parse_actual_relations(actual_relations);
+  num_rel = parse_actual_relations(actual_relations);
   assert(actual_relations[0] == 1);
   assert(actual_relations[1] == 2);
   assert(actual_relations[2] == 4);
+  assert(num_rel == 3);
 
   input = "3 1 7|  ";
-  parse_actual_relations(actual_relations);
+  num_rel = parse_actual_relations(actual_relations);
   assert(actual_relations[0] == 3);
   assert(actual_relations[1] == 1);
   assert(actual_relations[2] == 7);
+  assert(num_rel == 3);
 }
 
 // Parse parts of predicates in that form: x.y
@@ -286,7 +291,7 @@ ParseQueryResult parse_query(const char *query) {
   ParseQueryResult pqr;
   input = query;
   // Parse the actual relations and fill the `actual_relations` map.
-  parse_actual_relations(pqr.actual_relations);
+  int num_rel = parse_actual_relations(pqr.actual_relations);
 
   // Find the number of predicates
   int num_predicates = find_num_predicates();
@@ -308,6 +313,7 @@ ParseQueryResult parse_query(const char *query) {
 
   pqr.predicates = predicates;
   pqr.sums = sums;
+  pqr.num_relations = num_rel;
 
   return pqr;
 }
