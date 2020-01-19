@@ -171,21 +171,29 @@ void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
   // Assume join on the same relation.
   
   ColumnStat stats_left = stats.relations[left.first][left.second];
-  ColumnStat stats_right = stats.relations[left.first][right.second];
+  ColumnStat stats_right = stats.relations[right.first][right.second];
   
   // Compute new values
-  double new_l = std::max(stats_left.l, stats_right.l);   
-  double new_u = std::min(stats_left.u, stats_right.u);   
+  double new_l = std::max(stats_left.l, stats_right.l);
+  double new_u = std::min(stats_left.u, stats_right.u);
+
+  double new_f, new_d;
+  double f_ratio;
   double n = new_u - new_l + 1;
-  double new_f = stats_left.f / n;
-  
-  double fA = stats_left.f;
-  double dA = stats_left.d;
-  assert(fA);
-  assert(dA);
-  double f_ratio = new_f/fA;
-  double power = pow(1-f_ratio, fA/dA);
-  double new_d = stats_left.d * (1.0-power);
+  if (left.first == right.first) { // on same relation
+    new_f = stats_left.f / n;
+    
+    double fA = stats_left.f;
+    double dA = stats_left.d;
+    assert(fA);
+    assert(dA);
+    f_ratio = new_f/fA;
+    double power = pow(1-f_ratio, fA/dA);
+    new_d = stats_left.d * (1.0-power);
+  } else {
+    new_f = (stats_left.f * stats_right.f) / n;
+    new_d = (stats_left.d * stats_right.d) / n;
+  }
   
   ColumnStat new_stat{new_l, new_u, new_f, new_d};
   
@@ -196,11 +204,22 @@ void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
   // Update _all_ the rest of the relations.
   int k = 0;
   for (ColumnStat &col_stat : stats.relations[left.first]) {
-    if (k != left.second && k != right.second) {
+    if (k != left.second) {
       double power = pow(1-f_ratio, col_stat.f/col_stat.d);
       col_stat.d = col_stat.d * (1 - power);
       col_stat.f = new_stat.f;
     }
+    k++;
+  }
+
+  k = 0;
+  for (ColumnStat &col_stat : stats.relations[right.first]) {
+    if (k != right.second) {
+      double power = pow(1-f_ratio, col_stat.f/col_stat.d);
+      col_stat.d = col_stat.d * (1 - power);
+      col_stat.f = new_stat.f;
+    }
+    k++;
   }
 }
 
@@ -228,10 +247,18 @@ Stats get_partial_stats_from_initial_stats(Stats initial,
   return stats;
 }
 
-int queries_reordered = 0;
+static int queries_reordered = 0;
 
-ParseQueryResult reorder_query(ParseQueryResult pqr, Stats stats) {
+ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
   Pair<int, int> connected[max_relations][max_columns][max_joins];
+
+/*
+  for (ssize_t i = 0; i < pqr.predicates.size; ++i) {
+    Predicate p = pqr.predicates[i];
+    if (p.kind != PRED::FILTER)
+      break;
+  }
+  */
 
   // Initialize to no connections
   for (int i = 0; i < max_relations; ++i)
@@ -409,6 +436,14 @@ ParseQueryResult reorder_query(ParseQueryResult pqr, Stats stats) {
   Pair<int, int> first = join_parts[min_triple.first];
   Pair<int, int> second = join_parts[min_triple.second];
   Pair<int, int> third = join_parts[min_triple.third];
+
+  /*
+  printf("%d %d %d\n\n", min_triple.first, min_triple.second, min_triple.third);
+  printf("first: %d.%d\nsecond: %d.%d\nthird: %d.%d\n",
+         first.first, first.second,
+         second.first, second.second,
+         third.first, third.second);
+  */
   
   ssize_t i = pqr.predicates.size - num_joins;
   pqr.predicates[i].lhs = first;
@@ -429,6 +464,15 @@ ParseQueryResult reorder_query(ParseQueryResult pqr, Stats stats) {
   }
 
   queries_reordered++;
+
+  /*
+  if (queries_reordered == 28) {
+    for (ssize_t i = pqr.predicates.size - num_joins; i < pqr.predicates.size; ++i) {
+      Predicate p = pqr.predicates[i];
+      p.print();
+    }
+  }
+  */
   
   /*
   printf("first: %d\nsecond: %d\nthird: %d\n", min_triple.first,
@@ -490,7 +534,7 @@ int main(int argc, char *args[]) {
   // TODO: get part of stats from all stats
   Stats stats = alloc_new_stats();
   stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
-  reorder_query(pqr, stats);
+  rewrite_query(pqr, stats);
   */
 
   //return 0;
@@ -508,7 +552,7 @@ int main(int argc, char *args[]) {
       __num_relations = pqr.num_relations;
       //printf("\n\nQUERY: %s\n\n", query);
       Stats stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
-      //pqr = reorder_query(pqr, stats);
+      pqr = rewrite_query(pqr, stats);
       future_sums.push(executor->execute_query_async(pqr, &state));
 
       pthread_mutex_lock(&state.mutex);
