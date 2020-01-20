@@ -50,7 +50,7 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr) {
       pthread_mutex_lock(&ir_mutex);
       intermediate_results.push(new_ir); // first push and then start to execute...
       pthread_mutex_unlock(&ir_mutex);
-      intermediate_results[intermediate_results.len - 1].execute_join(predicate);
+      intermediate_results[intermediate_results.len-1].execute_join(predicate);
     } else {
       // This is the common case. What we did in previous versions.
       pthread_mutex_lock(&ir_mutex);
@@ -74,7 +74,7 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr) {
 
 int QueryExecutor::get_target_ir_index(size_t relation_index) {
   for (int i = 0; i < intermediate_results.len; ++i) {
-    auto ir = intermediate_results[i];
+    auto &ir = intermediate_results[i];
     if (ir.previous_join != nullptr) {
       ir.previous_join->wait();
     }

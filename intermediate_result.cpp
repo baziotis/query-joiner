@@ -254,6 +254,9 @@ void IntermediateResult::execute_common_join(size_t existing_relation_index,
   if (r_existing.size == 0 || r_new.size == 0) {
     // Exit the query execution...
     this->row_n = 0;
+    column_n++;
+    this->operator[](existing_relation_index) = StretchyBuf<u64>(0);
+    this->operator[](new_relation_index) = StretchyBuf<u64>(0);
     return;
   }
 
@@ -412,11 +415,10 @@ void IntermediateResult::free() {
 }
 
 void IntermediateResult::execute_join(const Predicate &predicate) {
-  if (column_n != 0) {
-    if (previous_join != nullptr) {
-      previous_join->wait();
-    }
+  if (previous_join != nullptr) {
+    previous_join->wait();
   }
+
   previous_join = &scheduler.add_task(execute_join_static, this, predicate);
 //  execute_join_static(this, predicate);
 }

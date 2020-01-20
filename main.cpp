@@ -551,14 +551,14 @@ int main(int argc, char *args[]) {
   //const char *input = "2 3 | 0.0=0.1 & 0.1=0.2 & 0.2 = 0.3 | 0.2 2.5 2.2";
   //const char *input = "3 0 1|0.2=1.0&0.1=2.0&0.2>3499|1.2 0.1";
   //const char *input = "4 1 2 11|0.1=1.0&1.0=2.1&1.0=3.1&0.1>2493|3.2 2.2 2.1";
-  const char *input = "9 0 2|0.1=1.0&1.0=2.2&0.0>12472|1.0 0.3 0.4";
-  ParseQueryResult pqr = parse_query(input);
-
-  __num_relations = pqr.num_relations;
-  // TODO: get part of stats from all stats
-  Stats stats = alloc_new_stats();
-  stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
-  rewrite_query(pqr, stats);
+//  const char *input = "9 0 2|0.1=1.0&1.0=2.2&0.0>12472|1.0 0.3 0.4";
+//  ParseQueryResult pqr = parse_query(input);
+//
+//  __num_relations = pqr.num_relations;
+//  // TODO: get part of stats from all stats
+//  Stats stats = alloc_new_stats();
+//  stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
+//  rewrite_query(pqr, stats);
 
   //return 0;
 
@@ -573,7 +573,7 @@ int main(int argc, char *args[]) {
       ParseQueryResult pqr = parse_query(query);
       ++count_queries;
       __num_relations = pqr.num_relations;
-      //printf("\n\nQUERY: %s\n\n", query);
+//      printf("\n\nQUERY: %s\n\n", query);
       Stats stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
       rewrite_query(pqr, stats);
       future_sums.push(executor->execute_query_async(pqr, &state));
@@ -603,7 +603,7 @@ int main(int argc, char *args[]) {
     future_sums.free();
   }
 
-  printf("queries_reordered: %d / %d\n", queries_reordered, count_queries);
+//  printf("queries_reordered: %d / %d\n", queries_reordered, count_queries);
   fclose(fp);
   return 0;
 }
