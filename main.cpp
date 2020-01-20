@@ -149,21 +149,22 @@ Stats alloc_new_stats() {
   // TODO: Update the arrays to hold actual data.
   Stats stats;
   stats.relations = Array<Array<ColumnStat>>(__num_relations);
-  Array<ColumnStat> col_stats(max_columns);
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-  col_stats.push({1, 2, 3, 4});
-
-  for (int i = col_stats.size; i < max_columns; ++i)
+  for (int i = 0; i < __num_relations; ++i) {
+    Array<ColumnStat> col_stats(max_columns);
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
+    col_stats.push({1, 2, 3, 4});
     col_stats.push({1, 2, 3, 4});
 
-  for (int i = 0; i < __num_relations; ++i)
+    for (int i = col_stats.size; i < max_columns; ++i)
+      col_stats.push({1, 2, 3, 4});
+
     stats.relations.push(col_stats);
+  }
   return stats;
 }
 
@@ -194,32 +195,30 @@ void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
     new_f = (stats_left.f * stats_right.f) / n;
     new_d = (stats_left.d * stats_right.d) / n;
   }
-  
+
   ColumnStat new_stat{new_l, new_u, new_f, new_d};
-  
+
   // Update the 2 join parts that participated.
   stats.relations[left.first][left.second] = new_stat;
   stats.relations[right.first][right.second] = new_stat;
   
   // Update _all_ the rest of the relations.
-  int k = 0;
-  for (ColumnStat &col_stat : stats.relations[left.first]) {
+  for (int k = 0; k != stats.relations[left.first].size; ++k) {
     if (k != left.second) {
+      ColumnStat &col_stat = stats.relations[left.first][k];
       double power = pow(1-f_ratio, col_stat.f/col_stat.d);
       col_stat.d = col_stat.d * (1 - power);
       col_stat.f = new_stat.f;
     }
-    k++;
   }
 
-  k = 0;
-  for (ColumnStat &col_stat : stats.relations[right.first]) {
+  for (int k = 0; k != stats.relations[right.first].size; ++k) {
     if (k != right.second) {
+      ColumnStat &col_stat = stats.relations[right.first][k];
       double power = pow(1-f_ratio, col_stat.f/col_stat.d);
       col_stat.d = col_stat.d * (1 - power);
       col_stat.f = new_stat.f;
     }
-    k++;
   }
 }
 
@@ -331,9 +330,10 @@ ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
     Stats new_stats = alloc_new_stats();
     copy_stats(new_stats, stats);
     
-    stats.get_column_stat(left).print();
+    //stats.get_column_stat(left).print();
     update_stats(new_stats, left, right);
     new_stats.get_column_stat(left).print();
+    new_stats.get_column_stat(right).print();
     assert(new_stats.get_column_stat(left) == new_stats.get_column_stat(right));
     double c = compute_cost(new_stats, left);
     //printf("cost: %lf\n\n", c);
@@ -463,22 +463,10 @@ ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
     }
   }
 
-  queries_reordered++;
+  for (Predicate p : pqr.predicates)
+    p.print();
 
-  /*
-  if (queries_reordered == 28) {
-    for (ssize_t i = pqr.predicates.size - num_joins; i < pqr.predicates.size; ++i) {
-      Predicate p = pqr.predicates[i];
-      p.print();
-    }
-  }
-  */
-  
-  /*
-  printf("first: %d\nsecond: %d\nthird: %d\n", min_triple.first,
-         min_triple.second,
-         min_triple.third);
-  */
+  queries_reordered++;
 
   return pqr;
 }
@@ -524,10 +512,10 @@ int main(int argc, char *args[]) {
 
   Stats initial_stats = compute_stats(relation_storage);
 
-  /*
-  const char *input = "2 3 | 0.0=0.1 & 0.1=0.2 & 0.2 = 0.3 | 0.2 2.5 2.2";
+  //const char *input = "2 3 | 0.0=0.1 & 0.1=0.2 & 0.2 = 0.3 | 0.2 2.5 2.2";
   //const char *input = "3 0 1|0.2=1.0&0.1=2.0&0.2>3499|1.2 0.1";
   //const char *input = "4 1 2 11|0.1=1.0&1.0=2.1&1.0=3.1&0.1>2493|3.2 2.2 2.1";
+  const char *input = "9 0 2|0.1=1.0&1.0=2.2&0.0>12472|1.0 0.3 0.4";
   ParseQueryResult pqr = parse_query(input);
 
   __num_relations = pqr.num_relations;
@@ -535,7 +523,6 @@ int main(int argc, char *args[]) {
   Stats stats = alloc_new_stats();
   stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
   rewrite_query(pqr, stats);
-  */
 
   //return 0;
 
@@ -550,9 +537,9 @@ int main(int argc, char *args[]) {
       ParseQueryResult pqr = parse_query(query);
       ++count_queries;
       __num_relations = pqr.num_relations;
-      //printf("\n\nQUERY: %s\n\n", query);
+      printf("\n\nQUERY: %s\n\n", query);
       Stats stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
-      pqr = rewrite_query(pqr, stats);
+      rewrite_query(pqr, stats);
       future_sums.push(executor->execute_query_async(pqr, &state));
 
       pthread_mutex_lock(&state.mutex);
