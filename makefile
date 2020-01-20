@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -ggdb
+CFLAGS = -Wall -ggdb -Ofast
 
 bin: command_interpreter.o file_manager.o intermediate_result.o joinable.o main.o parse.o query_executor.o relation_data.o relation_storage.o report_utils.o task_scheduler.o tokenizer.o utils.o 
 	$(CC) $(CFLAGS) command_interpreter.o file_manager.o intermediate_result.o joinable.o main.o parse.o query_executor.o relation_data.o relation_storage.o report_utils.o task_scheduler.o tokenizer.o utils.o -o query_joiner -lm -lpthread 

@@ -169,8 +169,6 @@ Stats alloc_new_stats() {
 }
 
 void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
-  // Assume join on the same relation.
-  
   ColumnStat stats_left = stats.relations[left.first][left.second];
   ColumnStat stats_right = stats.relations[right.first][right.second];
   
@@ -201,23 +199,46 @@ void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
   // Update the 2 join parts that participated.
   stats.relations[left.first][left.second] = new_stat;
   stats.relations[right.first][right.second] = new_stat;
-  
-  // Update _all_ the rest of the relations.
-  for (int k = 0; k != stats.relations[left.first].size; ++k) {
-    if (k != left.second) {
-      ColumnStat &col_stat = stats.relations[left.first][k];
-      double power = pow(1-f_ratio, col_stat.f/col_stat.d);
-      col_stat.d = col_stat.d * (1 - power);
-      col_stat.f = new_stat.f;
-    }
-  }
 
-  for (int k = 0; k != stats.relations[right.first].size; ++k) {
-    if (k != right.second) {
-      ColumnStat &col_stat = stats.relations[right.first][k];
-      double power = pow(1-f_ratio, col_stat.f/col_stat.d);
-      col_stat.d = col_stat.d * (1 - power);
-      col_stat.f = new_stat.f;
+
+  if (left.first == right.first) { // on same relation
+    // Update _all_ the rest of the relations.
+    for (int k = 0; k != stats.relations[left.first].size; ++k) {
+      if (k != left.second) {
+        ColumnStat &col_stat = stats.relations[left.first][k];
+        double power = pow(1-f_ratio, col_stat.f/col_stat.d);
+        col_stat.d = col_stat.d * (1 - power);
+        col_stat.f = new_stat.f;
+      }
+    }
+
+    for (int k = 0; k != stats.relations[right.first].size; ++k) {
+      if (k != right.second) {
+        ColumnStat &col_stat = stats.relations[right.first][k];
+        double power = pow(1-f_ratio, col_stat.f/col_stat.d);
+        col_stat.d = col_stat.d * (1 - power);
+        col_stat.f = new_stat.f;
+      }
+    }
+  } else {
+    double d_ratio = new_stat.d / stats_left.d;
+    // Update _all_ the rest of the relations.
+    for (int k = 0; k != stats.relations[left.first].size; ++k) {
+      if (k != left.second) {
+        ColumnStat &col_stat = stats.relations[left.first][k];
+        double power = pow(1-d_ratio, col_stat.f/col_stat.d);
+        col_stat.d = col_stat.d * (1 - power);
+        col_stat.f = new_stat.f;
+      }
+    }
+    d_ratio = new_stat.d / stats_right.d;
+    for (int k = 0; k != stats.relations[right.first].size; ++k) {
+      if (k != right.second) {
+        ColumnStat &col_stat = stats.relations[right.first][k];
+        double power = pow(1-f_ratio, col_stat.f/col_stat.d);
+        col_stat.d = col_stat.d * (1 - power);
+        col_stat.f = new_stat.f;
+      }
     }
   }
 }
@@ -248,16 +269,34 @@ Stats get_partial_stats_from_initial_stats(Stats initial,
 
 static int queries_reordered = 0;
 
+void update_filter(Stats stats, Predicate p) {
+  assert(p.kind == PRED::FILTER);
+  assert(p.op == '=');
+  double k = p.filter_val;
+  ColumnStat new_stat = {k, k, 1, 0};
+  stats.relations[p.lhs.first][p.lhs.second] = new_stat;
+
+  // Update all the other relations.
+  for (int k = 0; k != stats.relations[p.lhs.first].size; ++k) {
+    if (k != p.lhs.second) {
+      ColumnStat &col_stat = stats.relations[p.lhs.first][k];
+      double f_ratio = new_stat.f / col_stat.f;
+      double power = pow(1-f_ratio, col_stat.f/col_stat.d);
+      col_stat.d = col_stat.d * (1 - power);
+    }
+  }
+}
+
 ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
   Pair<int, int> connected[max_relations][max_columns][max_joins];
 
-/*
   for (ssize_t i = 0; i < pqr.predicates.size; ++i) {
     Predicate p = pqr.predicates[i];
     if (p.kind != PRED::FILTER)
       break;
+    if (p.op == '=')
+      update_filter(stats, p);
   }
-  */
 
   // Initialize to no connections
   for (int i = 0; i < max_relations; ++i)
@@ -463,9 +502,6 @@ ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
     }
   }
 
-  for (Predicate p : pqr.predicates)
-    p.print();
-
   queries_reordered++;
 
   return pqr;
@@ -537,7 +573,7 @@ int main(int argc, char *args[]) {
       ParseQueryResult pqr = parse_query(query);
       ++count_queries;
       __num_relations = pqr.num_relations;
-      printf("\n\nQUERY: %s\n\n", query);
+      //printf("\n\nQUERY: %s\n\n", query);
       Stats stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
       rewrite_query(pqr, stats);
       future_sums.push(executor->execute_query_async(pqr, &state));

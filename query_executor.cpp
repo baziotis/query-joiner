@@ -45,7 +45,6 @@ StretchyBuf<uint64_t> QueryExecutor::execute_query(ParseQueryResult pqr) {
       intermediate_results_remove_at(target_ir_index_2);
       pthread_mutex_unlock(&ir_mutex);
     } else if (target_ir_index_1 == -1 && target_ir_index_2 == -1) {
-      assert(++is_chain < 2); // Make sure we enter this case once only for chains.
       // If both relations are new add a new ir to the list.
       IntermediateResult new_ir(relation_storage, pqr);
       pthread_mutex_lock(&ir_mutex);
