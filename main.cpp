@@ -170,8 +170,25 @@ Stats alloc_new_stats() {
 }
 
 void update_stats(Stats stats, Pair<int, int> left, Pair<int, int> right) {
+
   ColumnStat stats_left = stats.relations[left.first][left.second];
   ColumnStat stats_right = stats.relations[right.first][right.second];
+
+  if (left == right) {
+    double fA = stats_left.f;
+    // Self-join
+    ColumnStat new_stat = stats_left;
+    new_stat.f = fA * fA / (stats_left.u - stats_left.l + 1);
+
+    stats.relations[left.first][left.second] = new_stat;
+    // Update the rest of the relations.
+    for (int k = 0; k != stats.relations[left.first].size; ++k) {
+      if (k != left.second) {
+        ColumnStat &col_stat = stats.relations[left.first][k];
+        col_stat.f = new_stat.f;
+      }
+    }
+  }
   
   // Compute new values
   double new_l = std::max(stats_left.l, stats_right.l);
