@@ -279,7 +279,7 @@ void *run_merge(void *args) {
   }
   pthread_exit(NULL);
 }
-
+/*
 StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   StretchyBuf<GroupIndexes> group_indexes = calculate_group_indexes(lhs, rhs);
   StretchyBuf<Join::JoinRow> *result = new StretchyBuf<Join::JoinRow>{lhs.size};
@@ -308,8 +308,8 @@ StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
 
   return *result;
 }
-
-StretchyBuf<Join::JoinRow> Join::normal_join(Joinable lhs, Joinable rhs) {
+*/
+StretchyBuf<Join::JoinRow> Join::operator()(Joinable lhs, Joinable rhs) {
   StretchyBuf<Join::JoinRow> res{};
   size_t prev_j = 0U;
   for (size_t i = 0U; i != lhs.size; ++i) {

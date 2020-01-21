@@ -565,9 +565,9 @@ int main(int argc, char *args[]) {
   TaskState state{};
 
   QueryExecutor *executor;
+  StretchyBuf<Future<StretchyBuf<uint64_t>>> future_sums{interpreter.remaining_commands()};
   int count_queries = 0;
   while (interpreter.read_query_batch()) {
-    StretchyBuf<Future<StretchyBuf<uint64_t>>> future_sums{interpreter.remaining_commands()};
     for (char *query : interpreter) {
       executor = new QueryExecutor{relation_storage};
       ParseQueryResult pqr = parse_query(query);
@@ -600,7 +600,7 @@ int main(int argc, char *args[]) {
       }
     }
 
-    future_sums.free();
+    future_sums.reset();
   }
 
 //  printf("queries_reordered: %d / %d\n", queries_reordered, count_queries);
