@@ -6,7 +6,7 @@
 
 #include <math.h>
 
-size_t nr_threads = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN) * 2);
+size_t nr_threads = static_cast<size_t>(12);
 TaskScheduler scheduler{nr_threads};
 
 struct ColumnStat {

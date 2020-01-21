@@ -31,7 +31,7 @@ struct StretchyBuf {
   void _grow(size_t new_len) {
     constexpr size_t size_t_max = std::numeric_limits<size_t>::max();
     assert(cap <= (size_t_max - 1) / 2);
-    size_t new_cap = MAX(MAX(2 * cap, new_len), 16);
+    size_t new_cap = MAX(MAX(2 * cap, new_len), 256);
     assert(new_len <= new_cap);
     assert(new_cap <= (size_t_max) / sizeof(T));
     size_t new_size = new_cap * sizeof(T);
