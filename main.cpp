@@ -2,6 +2,7 @@
 #include "parse.h"
 #include "relation_storage.h"
 #include "query_executor.h"
+#include "scoped_timer.h"
 
 #include <math.h>
 
@@ -508,33 +509,6 @@ ParseQueryResult rewrite_query(ParseQueryResult pqr, Stats stats) {
 }
 
 int main(int argc, char *args[]) {
-//    Joinable lhs{10};
-//    Joinable rhs{10};
-//    lhs.push({1, 0});
-//    lhs.push({1, 1});
-//    lhs.push({1, 2});
-//    lhs.push({1, 3});
-//    lhs.push({2, 4});
-//    lhs.push({2, 5});
-//    lhs.push({4, 6});
-//    lhs.push({10, 7});
-//
-//    rhs.push({1, 10});
-//    rhs.push({1, 20});
-//    rhs.push({1, 30});
-//    rhs.push({2, 40});
-//    rhs.push({3, 50});
-//    rhs.push({4, 500});
-//    rhs.push({10, 600});
-//    rhs.push({10, 700});
-//
-//    Join join{};
-//    auto res = join(lhs, rhs);
-//    for (auto v : res) {
-//      for (auto rv : v.second) {
-//        printf("LHS rowid = %lu, RHS rowid = %lu\n", v.first.v, rv.v);
-//      }
-//    }
 
   scheduler.start();
   // Αdd a file here that contains the full input. (filenames, queries).
@@ -547,21 +521,7 @@ int main(int argc, char *args[]) {
   relation_storage.insert_from_filenames(interpreter.begin(), interpreter.end());
 
   Stats initial_stats = compute_stats(relation_storage);
-
-  //const char *input = "2 3 | 0.0=0.1 & 0.1=0.2 & 0.2 = 0.3 | 0.2 2.5 2.2";
-  //const char *input = "3 0 1|0.2=1.0&0.1=2.0&0.2>3499|1.2 0.1";
-  //const char *input = "4 1 2 11|0.1=1.0&1.0=2.1&1.0=3.1&0.1>2493|3.2 2.2 2.1";
-//  const char *input = "9 0 2|0.1=1.0&1.0=2.2&0.0>12472|1.0 0.3 0.4";
-//  ParseQueryResult pqr = parse_query(input);
-//
-//  __num_relations = pqr.num_relations;
-//  // TODO: get part of stats from all stats
-//  Stats stats = alloc_new_stats();
-//  stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
-//  rewrite_query(pqr, stats);
-
-  //return 0;
-
+  Scoped_Timer timer{"Main execution"};
   TaskState state{};
 
   QueryExecutor *executor;
@@ -573,7 +533,6 @@ int main(int argc, char *args[]) {
       ParseQueryResult pqr = parse_query(query);
       ++count_queries;
       __num_relations = pqr.num_relations;
-//      printf("\n\nQUERY: %s\n\n", query);
       Stats stats = get_partial_stats_from_initial_stats(initial_stats, pqr.actual_relations);
       rewrite_query(pqr, stats);
       future_sums.push(executor->execute_query_async(pqr, &state));
@@ -603,7 +562,6 @@ int main(int argc, char *args[]) {
     future_sums.reset();
   }
 
-//  printf("queries_reordered: %d / %d\n", queries_reordered, count_queries);
   fclose(fp);
   return 0;
 }

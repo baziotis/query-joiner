@@ -8,7 +8,7 @@ link_libraries(-lpthread)
 add_executable(query_joiner main.cpp array.h common.h pair.h metaprogramming.h relation_data.h relation_data.cpp
         report_utils.cpp report_utils.h utils.h utils.cpp relation_storage.h relation_storage.cpp
         joinable.cpp joinable.h tokenizer.h tokenizer.cpp command_interpreter.h command_interpreter.cpp parse.cpp parse.h
-        intermediate_result.h intermediate_result.cpp task_scheduler.cpp task_scheduler.h queue.h query_executor.cpp query_executor.h)
+        intermediate_result.h intermediate_result.cpp task_scheduler.cpp task_scheduler.h queue.h query_executor.cpp query_executor.h scoped_timer.h)
 
 target_link_libraries(query_joiner pthread)
 
